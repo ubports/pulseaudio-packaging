@@ -8,6 +8,8 @@
 
 # Cherry-picked from upstream
 0100-switch-on-port-available-Switch-from-HDMI-to-analog-.patch
+0101-card-add-preferred-input-output-port.patch
+0102-switch-on-port-available-prefer-ports-that-have-been.patch
 
 # Ubuntu touch stuff
 0202-dont-probe-ucm.patch
