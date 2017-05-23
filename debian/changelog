@@ -23,6 +23,36 @@ pulseaudio (1:8.0-1ubports1) xenial; urgency=medium
 
  -- Marius Gripsgard <marius@ubports.com>  Thu, 28 Dec 2017 10:05:34 +0100
 
+pulseaudio (1:8.0-0ubuntu3.3) xenial; urgency=medium
+
+  [Luke Yelavich, Konrad Zapałowicz]
+  * Fixed multiple interrelated problems with using Bluetooth audio (A2DP),
+    where users would experience some combination of:
+    - Bluetooth headset/speakers listed but not selectable in Sound settings
+      (LP: #1283003)
+    - [regression] Bluetooth audio no longer supports A2DP (stuck in HSP/HFP
+      mode) (LP: #1438510)
+    - [xenial] Bluetooth device doesn't play any sound in A2DP mode unless set
+      to HSP/HFP first (LP: #1582213)
+  * Specific patches from upstream used to address the above problems:
+    - 0103-bluetooth-Add-support-for-automatic-switch-between-h.patch
+    - 0104-bluetooth-Add-support-for-automatic-switch-bluez5.patch
+    - 0106-bluetooth-Add-optional-heuristic-for-switching-betwe.patch
+      . Backport from upstream to fix a bug in Xenial where an incorrect
+        audio profile is applied for a headset connected over Bluetooth
+        making using it impossible.
+    - 0105-bluetooth-policy-do-A2DP-profile-restoring-a-bit-lat.patch
+      . Fix a crash that happens if the BT headset is the only non-monitor
+        source in the system and the last "phone" stream dies.
+    - 0700-pulsecore-add-new-card-profile-hook.patch
+      . Backport from upstream (commit 7b6260140149) to allow for correct
+        profile selection.
+    - 0701-bluetooth-bluez5-wait-for-all-profiles-to-connect.patch
+      . Backport from upstream waiting for all profiles to connect before
+        creating a card.
+  
+ -- Daniel van Vugt <daniel.van.vugt@canonical.com>  Tue, 23 May 2017 16:24:14 +0800
+
 pulseaudio (1:8.0-0ubuntu3.2) xenial; urgency=medium
 
   * 0101-card-add-preferred-input-output-port.patch,
