@@ -23,6 +23,16 @@ pulseaudio (1:8.0-1ubports1) xenial; urgency=medium
 
  -- Marius Gripsgard <marius@ubports.com>  Thu, 28 Dec 2017 10:05:34 +0100
 
+pulseaudio (1:8.0-0ubuntu3.4) xenial; urgency=medium
+
+  * debian/control: Update Vcs fields to launchpad git.
+  * Cherrypick fixes for common crashes from upstream:
+    - cb78d6f5: SIGABRT in device_start_waiting_for_profiles (LP: #1690028,
+      LP: #1672171)
+    - d985276c: SIGABRT in pa_alsa_path_set_volume (LP: #1539209, LP: #1562817)
+
+ -- Daniel van Vugt <daniel.van.vugt@canonical.com>  Fri, 11 Aug 2017 15:16:57 +0800
+
 pulseaudio (1:8.0-0ubuntu3.3) xenial; urgency=medium
 
   [Luke Yelavich, Konrad Zapałowicz]
