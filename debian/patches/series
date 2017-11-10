@@ -57,6 +57,7 @@
 # Fixes for common crashes, backported from PulseAudio 11.0
 0800-cb78d6f5-fix-lp1690028-lp1672171.patch
 0801-d985276c-fix-lp1539209-lp1562817.patch
+0901-droid-fix-crash-on-module-load.patch
 
 # Allow out of tree modules
 0902-install_pulsecore_headers.patch
