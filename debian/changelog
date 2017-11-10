@@ -23,6 +23,14 @@ pulseaudio (1:8.0-1ubports1) xenial; urgency=medium
 
  -- Marius Gripsgard <marius@ubports.com>  Thu, 28 Dec 2017 10:05:34 +0100
 
+pulseaudio (1:8.0-0ubuntu3.7) xenial; urgency=medium
+
+  * debian/patches/0901-droid-fix-crash-on-module-load.patch: [Fix the
+    crash on module load, this crash was result of patch backported in
+    release 1:8.0-0ubuntu3.3] (LP: #1728791)
+
+ -- Bhushan Shah <bshah@kde.org>  Fri, 10 Nov 2017 04:57:42 +0000
+
 pulseaudio (1:8.0-0ubuntu3.4) xenial; urgency=medium
 
   * debian/control: Update Vcs fields to launchpad git.
