@@ -23,6 +23,19 @@ pulseaudio (1:8.0-1ubports1) xenial; urgency=medium
 
  -- Marius Gripsgard <marius@ubports.com>  Thu, 28 Dec 2017 10:05:34 +0100
 
+pulseaudio (1:8.0-0ubuntu3.8) xenial; urgency=medium
+
+  [Hui Wang]
+  * Cherrypick fixes for supporting audio on Dell dock TB16:
+    - 60c0edd5: Add support for usb audio on the Dell dock TB16 (LP: #1718824)
+    - 2f1dcea3: build-sys: add the Dell dock TB16 configuration (LP: #1718824)
+
+  [Daniel van Vugt]
+  * Tidy up: Rename 0901-droid-fix-crash-on-module-load.patch to
+                    0803-droid-fix-crash-on-module-load.patch
+
+ -- Daniel van Vugt <daniel.van.vugt@canonical.com>  Tue, 12 Dec 2017 11:44:08 +0800
+
 pulseaudio (1:8.0-0ubuntu3.7) xenial; urgency=medium
 
   * debian/patches/0901-droid-fix-crash-on-module-load.patch: [Fix the
