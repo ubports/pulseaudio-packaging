@@ -1,3 +1,9 @@
+pulseaudio (1:8.0-1ubports) xenial; urgency=medium
+
+  * Import to ubports
+
+ -- Marius Gripsgard <marius@ubports.com>  Thu, 28 Dec 2017 10:05:34 +0100
+
 pulseaudio (1:8.0-0ubuntu6~xenial1) xenial; urgency=medium
 
   * No change rebuild
