@@ -16,10 +16,10 @@ Mer/Nemo should try to not depend on any out-of-tree modules.
  6 files changed, 153 insertions(+), 3 deletions(-)
  create mode 100644 pulsecore.pc.in
 
-diff --git a/Makefile.am b/Makefile.am
-index 13bc469..9771fac 100644
---- a/Makefile.am
-+++ b/Makefile.am
+Index: pulseaudio/Makefile.am
+===================================================================
+--- pulseaudio.orig/Makefile.am
++++ pulseaudio/Makefile.am
 @@ -53,7 +53,7 @@ dist_vapi_DATA = \
  		vala/libpulse-simple.deps vala/libpulse-simple.vapi
  
@@ -29,11 +29,11 @@ index 13bc469..9771fac 100644
  
  if HAVE_GLIB20
  pkgconfig_DATA += \
-diff --git a/configure.ac b/configure.ac
-index 9250c05..dfed015 100644
---- a/configure.ac
-+++ b/configure.ac
-@@ -1485,6 +1485,7 @@ man/Makefile
+Index: pulseaudio/configure.ac
+===================================================================
+--- pulseaudio.orig/configure.ac
++++ pulseaudio/configure.ac
+@@ -1530,6 +1530,7 @@ man/Makefile
  libpulse.pc
  libpulse-simple.pc
  libpulse-mainloop-glib.pc
@@ -41,10 +41,10 @@ index 9250c05..dfed015 100644
  doxygen/Makefile
  doxygen/doxygen.conf
  src/pulse/version.h
-diff --git a/libpulse-simple.pc.in b/libpulse-simple.pc.in
-index dc855fd..c034241 100644
---- a/libpulse-simple.pc.in
-+++ b/libpulse-simple.pc.in
+Index: pulseaudio/libpulse-simple.pc.in
+===================================================================
+--- pulseaudio.orig/libpulse-simple.pc.in
++++ pulseaudio/libpulse-simple.pc.in
 @@ -5,7 +5,7 @@ includedir=@includedir@
  
  Name: libpulse-simple
@@ -54,10 +54,10 @@ index dc855fd..c034241 100644
  Libs: -L${libdir} -lpulse-simple @PTHREAD_LIBS@
  Libs.private: -L${libdir}/pulseaudio -lpulsecommon-@PA_MAJORMINOR@
  Cflags: -I${includedir} -D_REENTRANT
-diff --git a/libpulse.pc.in b/libpulse.pc.in
-index 23d888b..5e7e75f 100644
---- a/libpulse.pc.in
-+++ b/libpulse.pc.in
+Index: pulseaudio/libpulse.pc.in
+===================================================================
+--- pulseaudio.orig/libpulse.pc.in
++++ pulseaudio/libpulse.pc.in
 @@ -6,7 +6,7 @@ modlibexecdir=@modlibexecdir@
  
  Name: libpulse
@@ -67,11 +67,10 @@ index 23d888b..5e7e75f 100644
  Libs: -L${libdir} -lpulse @PTHREAD_LIBS@
  Libs.private: -L${libdir}/pulseaudio -lpulsecommon-@PA_MAJORMINOR@
  Cflags: -I${includedir} -D_REENTRANT
-diff --git a/pulsecore.pc.in b/pulsecore.pc.in
-new file mode 100644
-index 0000000..b5b4a9b
+Index: pulseaudio/pulsecore.pc.in
+===================================================================
 --- /dev/null
-+++ b/pulsecore.pc.in
++++ pulseaudio/pulsecore.pc.in
 @@ -0,0 +1,12 @@
 +prefix=@prefix@
 +exec_prefix=${prefix}
@@ -85,10 +84,10 @@ index 0000000..b5b4a9b
 +Version: @PA_MAJORMINOR@
 +Libs: -L${libdir} -L${libdir}/pulseaudio -L${libdir}/pulse-@PA_MAJORMINOR@/modules -lpulsecore-@PA_MAJORMINOR@ -lpulsecommon-@PA_MAJORMINOR@ -lpulse @PTHREAD_LIBS@
 +Cflags: -D_REENTRANT -D__INCLUDED_FROM_PULSE_AUDIO -DPA_DEFAULT_CONFIG_DIR=\"@PA_DEFAULT_CONFIG_DIR@\" -I${includedir}
-diff --git a/src/Makefile.am b/src/Makefile.am
-index b0ca2bc..088dd93 100644
---- a/src/Makefile.am
-+++ b/src/Makefile.am
+Index: pulseaudio/src/Makefile.am
+===================================================================
+--- pulseaudio.orig/src/Makefile.am
++++ pulseaudio/src/Makefile.am
 @@ -23,6 +23,7 @@
  
  pulseincludedir=$(includedir)/pulse
@@ -97,7 +96,7 @@ index b0ca2bc..088dd93 100644
  pulselibexecdir=$(libexecdir)/pulse
  if HAVE_X11
  xdgautostartdir=$(sysconfdir)/xdg/autostart
-@@ -791,6 +792,142 @@ libpulsecommon_@PA_MAJORMINOR@_la_LIBADD += $(DBUS_LIBS)
+@@ -792,6 +793,141 @@ libpulsecommon_@PA_MAJORMINOR@_la_LIBADD
  endif
  
  ###################################
@@ -239,6 +238,3 @@ index b0ca2bc..088dd93 100644
  #         Client library          #
  ###################################
  
---
-libgit2 0.24.0
-
