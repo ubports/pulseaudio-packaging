@@ -8,6 +8,12 @@
 
 # Cherry-picked from upstream
 0100-switch-on-port-available-Switch-from-HDMI-to-analog-.patch
+0101-card-add-preferred-input-output-port.patch
+0102-switch-on-port-available-prefer-ports-that-have-been.patch
+0103-bluetooth-Add-support-for-automatic-switch-between-h.patch
+0104-bluetooth-Add-support-for-automatic-switch-bluez5.patch
+0105-bluetooth-policy-do-A2DP-profile-restoring-a-bit-lat.patch
+0106-bluetooth-Add-optional-heuristic-for-switching-betwe.patch
 
 # Ubuntu touch stuff
 0202-dont-probe-ucm.patch
@@ -44,3 +50,11 @@
 0601-droid-alternative-hw-module-id.patch
 0602-droid-inputstream-config-parameters.pach
 0603-droid-port-priority-and-availability.patch
+
+0700-pulsecore-add-new-card-profile-hook.patch
+0701-bluetooth-bluez5-wait-for-all-profiles-to-connect.patch
+
+# Fixes for common crashes, backported from PulseAudio 11.0
+0800-cb78d6f5-fix-lp1690028-lp1672171.patch
+0801-d985276c-fix-lp1539209-lp1562817.patch
+0901-droid-fix-crash-on-module-load.patch

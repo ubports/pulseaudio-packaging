@@ -51,8 +51,8 @@ Build-Depends: android-headers-19 (>= 23) [armhf arm64 i386 amd64],
     libxcb1-dev (>= 1.6),
     libxtst-dev
 Standards-Version: 3.9.6
-Vcs-Git: git://anonscm.debian.org/pkg-pulseaudio/pulseaudio.git
-Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-pulseaudio/pulseaudio.git
+Vcs-Git: https://git.launchpad.net/~ubuntu-audio-dev/pulseaudio?h=ubuntu-xenial
+Vcs-Browser: https://git.launchpad.net/~ubuntu-audio-dev/pulseaudio?h=ubuntu-xenial
 Homepage: http://www.pulseaudio.org
 XS-Testsuite: autopkgtest
 

@@ -1,28 +1,84 @@
-pulseaudio (1:8.0-1ubports) xenial; urgency=medium
+pulseaudio (1:8.0-1ubports1) xenial; urgency=medium
 
+  [Łukasz 'sil2100' Zemczak]
+  * debian/control:
+    - Build all binaries for arm64 as well.
+
+  [Marius Gripsgard]
   * Import to ubports
 
  -- Marius Gripsgard <marius@ubports.com>  Thu, 28 Dec 2017 10:05:34 +0100
 
-pulseaudio (1:8.0-0ubuntu6~xenial1) xenial; urgency=medium
+pulseaudio (1:8.0-0ubuntu3.7) xenial; urgency=medium
 
-  * No change rebuild
+  * debian/patches/0901-droid-fix-crash-on-module-load.patch: [Fix the
+    crash on module load, this crash was result of patch backported in
+    release 1:8.0-0ubuntu3.3] (LP: #1728791)
 
- -- Simon Fels <simon.fels@canonical.com>  Thu, 18 Aug 2016 10:51:00 +0200
+ -- Bhushan Shah <bshah@kde.org>  Fri, 10 Nov 2017 04:57:42 +0000
 
-pulseaudio (1:8.0-0ubuntu5) xenial; urgency=medium
+pulseaudio (1:8.0-0ubuntu3.4) xenial; urgency=medium
 
-  * debian/control:
-    - Build all binaries for arm64 as well.
+  * debian/control: Update Vcs fields to launchpad git.
+  * Cherrypick fixes for common crashes from upstream:
+    - cb78d6f5: SIGABRT in device_start_waiting_for_profiles (LP: #1690028,
+      LP: #1672171)
+    - d985276c: SIGABRT in pa_alsa_path_set_volume (LP: #1539209, LP: #1562817)
 
- -- Łukasz 'sil2100' Zemczak <lukasz.zemczak@ubuntu.com>  Mon, 18 Jul 2016 15:51:40 +0200
+ -- Daniel van Vugt <daniel.van.vugt@canonical.com>  Fri, 11 Aug 2017 15:16:57 +0800
 
-pulseaudio (1:8.0-0ubuntu4) xenial; urgency=medium
+pulseaudio (1:8.0-0ubuntu3.3) xenial; urgency=medium
 
-  * No source change rebuild to keep up with a new android-headers release
-    which fixes problems with floating point arguments.
+  [Luke Yelavich, Konrad Zapałowicz]
+  * Fixed multiple interrelated problems with using Bluetooth audio (A2DP),
+    where users would experience some combination of:
+    - Bluetooth headset/speakers listed but not selectable in Sound settings
+      (LP: #1283003)
+    - [regression] Bluetooth audio no longer supports A2DP (stuck in HSP/HFP
+      mode) (LP: #1438510)
+    - [xenial] Bluetooth device doesn't play any sound in A2DP mode unless set
+      to HSP/HFP first (LP: #1582213)
+  * Specific patches from upstream used to address the above problems:
+    - 0103-bluetooth-Add-support-for-automatic-switch-between-h.patch
+    - 0104-bluetooth-Add-support-for-automatic-switch-bluez5.patch
+    - 0106-bluetooth-Add-optional-heuristic-for-switching-betwe.patch
+      . Backport from upstream to fix a bug in Xenial where an incorrect
+        audio profile is applied for a headset connected over Bluetooth
+        making using it impossible.
+    - 0105-bluetooth-policy-do-A2DP-profile-restoring-a-bit-lat.patch
+      . Fix a crash that happens if the BT headset is the only non-monitor
+        source in the system and the last "phone" stream dies.
+    - 0700-pulsecore-add-new-card-profile-hook.patch
+      . Backport from upstream (commit 7b6260140149) to allow for correct
+        profile selection.
+    - 0701-bluetooth-bluez5-wait-for-all-profiles-to-connect.patch
+      . Backport from upstream waiting for all profiles to connect before
+        creating a card.
+  
+ -- Daniel van Vugt <daniel.van.vugt@canonical.com>  Tue, 23 May 2017 16:24:14 +0800
 
- -- Simon Fels <simon.fels@canonical.com>  Fri, 15 Apr 2016 15:38:42 +0200
+pulseaudio (1:8.0-0ubuntu3.2) xenial; urgency=medium
+
+  * 0101-card-add-preferred-input-output-port.patch,
+    0102-switch-on-port-available-prefer-ports-that-have-been.patch,
+    0103-card-Add-hook-before-profile-changes.patch:
+    - Backport from upstream to fix a bug in PulseAudio 8 where audio switches
+      to another audio device when an HDMI monitor goes to sleep, thanks to
+      Cristian Klein <cristiklein@gmail.com> for the backport (LP: #1641954)
+
+ -- Luke Yelavich <themuso@ubuntu.com>  Thu, 08 Dec 2016 14:16:59 +1100
+
+pulseaudio (1:8.0-0ubuntu3.1) xenial; urgency=medium
+
+  * debian/pulseaudio.maintscript: Bump versions for files that need to be
+    removed as they are obsolete (LP: #1573296)
+  * 0502-bluetooth-bluez5-bring-back-SCO-over-PCM-support.patch:
+    - Remove patch hunk that set u->transport to NULL. At the time this
+      code was written for 15.10, it was to prevent an assertion. Now with
+      newer versions of pulse, the opposite is happening in some circumstances
+      (LP: #1574324)
+
+ -- Luke Yelavich <themuso@ubuntu.com>  Thu, 03 Nov 2016 16:58:35 +1100
 
 pulseaudio (1:8.0-0ubuntu3) xenial; urgency=medium
 
