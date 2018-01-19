@@ -201,7 +201,6 @@ index b0ca2bc..088dd93 100644
 +		pulsecore/sconv-s16le.h \
 +		pulsecore/semaphore.h \
 +		pulsecore/shared.h \
-+		pulsecore/shmasyncq.h \
 +		pulsecore/shm.h \
 +		pulsecore/sink.h \
 +		pulsecore/sink-input.h \
