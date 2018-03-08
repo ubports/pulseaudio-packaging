@@ -23,6 +23,12 @@ pulseaudio (1:8.0-1ubports1) xenial; urgency=medium
 
  -- Marius Gripsgard <marius@ubports.com>  Thu, 28 Dec 2017 10:05:34 +0100
 
+pulseaudio (1:8.0-0ubuntu3.9) xenial; urgency=medium
+
+  * Cherrypick fixes for checking profile availabilities (LP: #1750947)
+
+ -- Hui Wang <hui.wang@canonical.com>  Thu, 08 Mar 2018 10:38:56 +0800
+
 pulseaudio (1:8.0-0ubuntu3.8) xenial; urgency=medium
 
   [Hui Wang]
