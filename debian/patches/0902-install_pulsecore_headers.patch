@@ -16,23 +16,23 @@ Mer/Nemo should try to not depend on any out-of-tree modules.
  6 files changed, 153 insertions(+), 3 deletions(-)
  create mode 100644 pulsecore.pc.in
 
-Index: pulseaudio/Makefile.am
+Index: pulseaudio-8.0/Makefile.am
 ===================================================================
---- pulseaudio.orig/Makefile.am
-+++ pulseaudio/Makefile.am
+--- pulseaudio-8.0.orig/Makefile.am
++++ pulseaudio-8.0/Makefile.am
 @@ -53,7 +53,7 @@ dist_vapi_DATA = \
  		vala/libpulse-simple.deps vala/libpulse-simple.vapi
- 
+
  pkgconfigdir = $(libdir)/pkgconfig
 -pkgconfig_DATA = libpulse.pc libpulse-simple.pc
 +pkgconfig_DATA = libpulse.pc libpulse-simple.pc pulsecore.pc
- 
+
  if HAVE_GLIB20
  pkgconfig_DATA += \
-Index: pulseaudio/configure.ac
+Index: pulseaudio-8.0/configure.ac
 ===================================================================
---- pulseaudio.orig/configure.ac
-+++ pulseaudio/configure.ac
+--- pulseaudio-8.0.orig/configure.ac
++++ pulseaudio-8.0/configure.ac
 @@ -1530,6 +1530,7 @@ man/Makefile
  libpulse.pc
  libpulse-simple.pc
@@ -41,12 +41,12 @@ Index: pulseaudio/configure.ac
  doxygen/Makefile
  doxygen/doxygen.conf
  src/pulse/version.h
-Index: pulseaudio/libpulse-simple.pc.in
+Index: pulseaudio-8.0/libpulse-simple.pc.in
 ===================================================================
---- pulseaudio.orig/libpulse-simple.pc.in
-+++ pulseaudio/libpulse-simple.pc.in
+--- pulseaudio-8.0.orig/libpulse-simple.pc.in
++++ pulseaudio-8.0/libpulse-simple.pc.in
 @@ -5,7 +5,7 @@ includedir=@includedir@
- 
+
  Name: libpulse-simple
  Description: PulseAudio Simplified Synchronous Client Interface
 -Version: @PACKAGE_VERSION@
@@ -54,12 +54,12 @@ Index: pulseaudio/libpulse-simple.pc.in
  Libs: -L${libdir} -lpulse-simple @PTHREAD_LIBS@
  Libs.private: -L${libdir}/pulseaudio -lpulsecommon-@PA_MAJORMINOR@
  Cflags: -I${includedir} -D_REENTRANT
-Index: pulseaudio/libpulse.pc.in
+Index: pulseaudio-8.0/libpulse.pc.in
 ===================================================================
---- pulseaudio.orig/libpulse.pc.in
-+++ pulseaudio/libpulse.pc.in
+--- pulseaudio-8.0.orig/libpulse.pc.in
++++ pulseaudio-8.0/libpulse.pc.in
 @@ -6,7 +6,7 @@ modlibexecdir=@modlibexecdir@
- 
+
  Name: libpulse
  Description: PulseAudio Client Interface
 -Version: @PACKAGE_VERSION@
@@ -67,10 +67,10 @@ Index: pulseaudio/libpulse.pc.in
  Libs: -L${libdir} -lpulse @PTHREAD_LIBS@
  Libs.private: -L${libdir}/pulseaudio -lpulsecommon-@PA_MAJORMINOR@
  Cflags: -I${includedir} -D_REENTRANT
-Index: pulseaudio/pulsecore.pc.in
+Index: pulseaudio-8.0/pulsecore.pc.in
 ===================================================================
 --- /dev/null
-+++ pulseaudio/pulsecore.pc.in
++++ pulseaudio-8.0/pulsecore.pc.in
 @@ -0,0 +1,12 @@
 +prefix=@prefix@
 +exec_prefix=${prefix}
@@ -84,26 +84,27 @@ Index: pulseaudio/pulsecore.pc.in
 +Version: @PA_MAJORMINOR@
 +Libs: -L${libdir} -L${libdir}/pulseaudio -L${libdir}/pulse-@PA_MAJORMINOR@/modules -lpulsecore-@PA_MAJORMINOR@ -lpulsecommon-@PA_MAJORMINOR@ -lpulse @PTHREAD_LIBS@
 +Cflags: -D_REENTRANT -D__INCLUDED_FROM_PULSE_AUDIO -DPA_DEFAULT_CONFIG_DIR=\"@PA_DEFAULT_CONFIG_DIR@\" -I${includedir}
-Index: pulseaudio/src/Makefile.am
+Index: pulseaudio-8.0/src/Makefile.am
 ===================================================================
---- pulseaudio.orig/src/Makefile.am
-+++ pulseaudio/src/Makefile.am
+--- pulseaudio-8.0.orig/src/Makefile.am
++++ pulseaudio-8.0/src/Makefile.am
 @@ -23,6 +23,7 @@
- 
+
  pulseincludedir=$(includedir)/pulse
  pulsecoreincludedir=$(includedir)/pulsecore
 +pulsecorefilterincludedir=$(includedir)/pulsecore/filter
  pulselibexecdir=$(libexecdir)/pulse
  if HAVE_X11
  xdgautostartdir=$(sysconfdir)/xdg/autostart
-@@ -792,6 +793,141 @@ libpulsecommon_@PA_MAJORMINOR@_la_LIBADD
+@@ -792,6 +793,144 @@ libpulsecommon_@PA_MAJORMINOR@_la_LIBADD
  endif
- 
+
  ###################################
 +#         Pulsecore headers       #
 +###################################
 +
 +pulsecoreinclude_HEADERS = \
++		pulsecore/access.h \
 +		pulsecore/arpa-inet.h \
 +		pulsecore/asyncmsgq.h \
 +		pulsecore/asyncq.h \
@@ -145,6 +146,7 @@ Index: pulseaudio/src/Makefile.am
 +		pulsecore/hook-list.h \
 +		pulsecore/i18n.h \
 +		pulsecore/idxset.h \
++		pulsecore/inotify-wrapper.h \
 +		pulsecore/iochannel.h \
 +		pulsecore/ioline.h \
 +		pulsecore/ipacl.h \
@@ -226,6 +228,7 @@ Index: pulseaudio/src/Makefile.am
 +		pulsecore/tokenizer.h \
 +		pulsecore/typedefs.h \
 +		pulsecore/usergroup.h \
++		pulsecore/winerrno.h \
 +		pulsecore/x11prop.h \
 +		pulsecore/x11wrap.h
 +
@@ -237,4 +240,3 @@ Index: pulseaudio/src/Makefile.am
 +###################################
  #         Client library          #
  ###################################
- 
