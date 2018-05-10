@@ -61,3 +61,5 @@
 
 # Allow out of tree modules
 0902-install_pulsecore_headers.patch
+
+0903-add-audioflingerglue.patch

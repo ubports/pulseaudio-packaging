@@ -1,0 +1,384 @@
+diff -urN pulseaudio-8.0/configure.ac pulseaudio-8.0-my/configure.ac
+--- pulseaudio-8.0/configure.ac	2018-05-10 19:00:55.240835103 +0200
++++ pulseaudio-8.0-my/configure.ac	2018-05-10 18:01:06.850744706 +0200
+@@ -834,6 +834,14 @@
+ AS_IF([test "x$enable_android_hal" = "xyes" && test "x$HAVE_ANDROID" = "x0"],
+     [AC_MSG_ERROR([*** libhardware not found])])
+ 
++
++AS_IF([test "x$enable_android_hal" != "xno"],
++    [AC_CHECK_HEADERS([audioflingerglue/audioflingerglue.h], HAVE_ANDROID=1, HAVE_ANDROID=0)],
++    HAVE_ANDROID=0)
++
++AS_IF([test "x$enable_android_hal" = "xyes" && test "x$HAVE_ANDROID" = "x0"],
++    [AC_MSG_ERROR([*** Could not find or include audioflingerglue.])])
++
+ AM_CONDITIONAL([HAVE_ANDROID], [test "x$HAVE_ANDROID" = "x1"])
+ AS_IF([test "x$HAVE_ANDROID" = "x1"], AC_DEFINE([HAVE_ANDROID], 1, [Have Android Audio HAL?]))
+ 
+diff -urN pulseaudio-8.0/src/Makefile.am pulseaudio-8.0-my/src/Makefile.am
+--- pulseaudio-8.0/src/Makefile.am	2018-05-10 19:00:55.244835136 +0200
++++ pulseaudio-8.0-my/src/Makefile.am	2018-05-12 16:08:04.263308411 +0200
+@@ -1441,7 +1441,8 @@
+ 		libdroid-source-22.la \
+ 		module-droid-sink-22.la \
+ 		module-droid-source-22.la \
+-		module-droid-card-22.la
++		module-droid-card-22.la \
++		module-droid-glue-22.la
+ endif
+ endif
+ 
+@@ -1729,7 +1730,8 @@
+ SYMDEF_FILES += \
+ 		module-droid-sink-22-symdef.h \
+ 		module-droid-source-22-symdef.h \
+-		module-droid-card-22-symdef.h
++		module-droid-card-22-symdef.h \
++		module-droid-glue-22-symdef.h
+ endif
+ endif
+ 
+@@ -2116,6 +2118,11 @@
+ module_droid_card_22_la_LIBADD = $(MODULE_LIBADD) $(LIBHARDWARE_LIBS) libdroid-util-22.la libdroid-sink-22.la libdroid-source-22.la
+ module_droid_card_22_la_CFLAGS = $(AM_CFLAGS) $(ANDROID_HEADERS_22_CFLAGS)
+ 
++module_droid_glue_22_la_SOURCES = modules/droid/hybris.c modules/droid/module-droid-glue.c
++module_droid_glue_22_la_LDFLAGS = $(MODULE_LDFLAGS) -lhybris-common
++module_droid_glue_22_la_LIBADD = $(MODULE_LIBADD) $(LIBHARDWARE_LIBS) libdroid-util-22.la 
++module_droid_glue_22_la_CFLAGS = $(AM_CFLAGS) $(ANDROID_HEADERS_22_CFLAGS) -I/usr/include/audioflingerglue
++
+ if HAVE_UDEV
+ module_droid_card_22_la_SOURCES += modules/droid/droid-extcon.c modules/droid/droid-extcon.h
+ module_droid_card_22_la_LIBADD += $(UDEV_LIBS)
+diff -urN pulseaudio-8.0/src/modules/droid/hybris.c pulseaudio-8.0-my/src/modules/droid/hybris.c
+--- pulseaudio-8.0/src/modules/droid/hybris.c	1970-01-01 01:00:00.000000000 +0100
++++ pulseaudio-8.0-my/src/modules/droid/hybris.c	2018-05-12 16:07:12.159531977 +0200
+@@ -0,0 +1,32 @@
++/*
++ * Copyright (C) 2015 Jolla Ltd.
++ * Copyright 2016 The Ubports project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ *
++ * Authored by: Juho Hämäläinen <juho.hamalainen@jolla.com>
++ *              Marius Gripsgard <mariogrip@ubports.com>
++ */
++
++#include "audioflingerglue.h"
++#include <dlfcn.h>
++#include <assert.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <hybris/common/binding.h>
++
++// TODO: add lib64 support
++HYBRIS_LIBRARY_INITIALIZE(audioflingerglue, "/system/lib/libaudioflingerglue.so");
++
++HYBRIS_IMPLEMENT_FUNCTION2(audioflingerglue, DroidAfGlue*, droid_afglue_connect, DroidAfGlueCallbacks*, void*);
++HYBRIS_IMPLEMENT_VOID_FUNCTION1(audioflingerglue, droid_afglue_disconnect, DroidAfGlue*);
+diff -urN pulseaudio-8.0/src/modules/droid/module-droid-discover.c pulseaudio-8.0-my/src/modules/droid/module-droid-discover.c
+--- pulseaudio-8.0/src/modules/droid/module-droid-discover.c	2018-05-10 19:00:55.136834243 +0200
++++ pulseaudio-8.0-my/src/modules/droid/module-droid-discover.c	2018-05-12 01:16:07.813007537 +0200
+@@ -2,6 +2,7 @@
+   This file is part of PulseAudio.
+ 
+   Copyright 2016 Simon Fels <simon.fels@canonical.com>
++            2018 Marius Gripsgard <marius@ubports.com>
+ 
+   PulseAudio is free software; you can redistribute it and/or modify
+   it under the terms of the GNU Lesser General Public License as
+@@ -37,16 +38,28 @@
+ #define ANDROID_PROPERTY_VERSION_RELEASE "ro.build.version.release"
+ 
+ #define MODULE_DROID_CARD_PREFIX "module-droid-card-"
++#define MODULE_DROID_GLUE_PREFIX "module-droid-glue-"
++
++#define AUDIOFLINGERGLUE_LIB32 "/system/lib/libaudioflingerglue.so"
++#define AUDIOFLINGERGLUE_LIB64 "/system/lib64/libaudioflingerglue.so"
+ 
+ struct userdata {
+     uint32_t module_idx;
++    uint32_t af_module_idx;
+ };
+ 
++static bool has_audioflingerglue() {
++  return access(AUDIOFLINGERGLUE_LIB32, F_OK) == 0 ||
++         access(AUDIOFLINGERGLUE_LIB64, F_OK) == 0;
++}
++
+ int pa__init(pa_module* m) {
+     struct userdata *u;
+     pa_module *mm;
++    pa_module *af_mm;
+     char version[50];
+     char *module_name = NULL;
++    char *af_module_name = NULL;
+ 
+     pa_assert(m);
+ 
+@@ -77,6 +90,29 @@
+         return -1;
+     }
+ 
++    // AudioFlingerglue
++    if (has_audioflingerglue()) {
++      pa_log("Device has AudioFlingerglue");
++
++      if (!strncmp(version, "5.1", 3) && pa_module_exists(MODULE_DROID_GLUE_PREFIX "22"))
++        af_module_name = MODULE_DROID_GLUE_PREFIX "22";
++      else {
++        pa_log("AudioFlingerglue Unsupported Android version %s", version);
++        pa_xfree(u);
++        return -1;
++      }
++
++      af_mm = pa_module_load(m->core, af_module_name, NULL);
++      if (af_mm)
++          u->af_module_idx = af_mm->index;
++
++      if (u->af_module_idx == PA_INVALID_INDEX) {
++          pa_xfree(u);
++          pa_log("Failed to load droid glue module for Android version %s", version);
++          return -1;
++      }
++    }
++
+     return 0;
+ }
+ 
+diff -urN pulseaudio-8.0/src/modules/droid/module-droid-glue.c pulseaudio-8.0-my/src/modules/droid/module-droid-glue.c
+--- pulseaudio-8.0/src/modules/droid/module-droid-glue.c	1970-01-01 01:00:00.000000000 +0100
++++ pulseaudio-8.0-my/src/modules/droid/module-droid-glue.c	2018-05-12 15:50:45.061871247 +0200
+@@ -0,0 +1,221 @@
++/*
++ * Copyright (C) 2015 Jolla Ltd.
++ *
++ * Contact: Juho Hämäläinen <juho.hamalainen@jolla.com>
++ *
++ * These PulseAudio Modules are free software; you can redistribute
++ * it and/or modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation
++ * version 2.1 of the License.
++ *
++ * This library is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with this library; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301
++ * USA.
++ */
++
++#ifdef HAVE_CONFIG_H
++#include <config.h>
++#endif
++
++#include <signal.h>
++#include <stdio.h>
++#include <dlfcn.h>
++
++#ifdef HAVE_VALGRIND_MEMCHECK_H
++#include <valgrind/memcheck.h>
++#endif
++
++#include <pulse/rtclock.h>
++#include <pulse/timeval.h>
++#include <pulse/xmalloc.h>
++
++#include <pulsecore/core.h>
++#include <pulsecore/i18n.h>
++#include <pulsecore/module.h>
++#include <pulsecore/modargs.h>
++#include <pulsecore/log.h>
++#include <pulsecore/macro.h>
++
++#include "droid-util.h"
++
++#include "module-droid-glue-22-symdef.h"
++
++#include <hybris/common/binding.h>
++#include <audioflingerglue.h>
++
++PA_MODULE_AUTHOR("Juho Hämäläinen");
++PA_MODULE_DESCRIPTION("Droid AudioFlinger Glue");
++PA_MODULE_VERSION(PACKAGE_VERSION);
++PA_MODULE_USAGE(
++        "module_id=<which droid hw module to load, default primary> "
++        "lib=<absolute path to audioflingerglue library. if not defined try to autodetect>"
++);
++
++static const char* const valid_modargs[] = {
++    "module_id",
++    "lib",
++    NULL,
++};
++
++#define AF_LIB32 "/system/lib/libaudioflingerglue.so"
++#define AF_LIB64 "/system/lib64/libaudioflingerglue.so"
++
++static const char* const lib_paths[] = {
++    AF_LIB32,
++    AF_LIB64,
++    NULL
++};
++
++#define DEFAULT_MODULE_ID "primary"
++
++static void *audioflingerglue_handle;
++
++struct userdata {
++    pa_core *core;
++    pa_module *module;
++
++    pa_droid_hw_module *hw_module;
++    DroidAfGlue *glue;
++};
++
++static int set_parameters_cb(const char *key_value_pairs, void *userdata) {
++    struct userdata *u;
++    int ret;
++
++    pa_assert_se((u = userdata));
++
++    pa_log_debug("Glue set_parameters(\"%s\")", key_value_pairs);
++
++    pa_droid_hw_module_lock(u->hw_module);
++    ret = u->hw_module->device->set_parameters(u->hw_module->device, key_value_pairs);
++    pa_droid_hw_module_unlock(u->hw_module);
++
++    if (ret != 0)
++        pa_log_warn("Glue set_parameters(\"%s\") failed: %d", key_value_pairs, ret);
++
++    return ret;
++}
++
++static int get_parameters_cb(const char *keys, char **reply, void *userdata) {
++    struct userdata *u;
++
++    pa_assert_se((u = userdata));
++
++    pa_droid_hw_module_lock(u->hw_module);
++    *reply = u->hw_module->device->get_parameters(u->hw_module->device, keys);
++    pa_droid_hw_module_unlock(u->hw_module);
++
++    pa_log_debug("Glue get_parameters(\"%s\"): \"%s\"", keys, *reply ? *reply : "<null>");
++
++    return *reply ? 0 : 1;
++}
++
++static bool audioflingerglue_initialize(const char *path) {
++    if ((audioflingerglue_handle = android_dlopen(path, RTLD_LAZY)))
++        return true;
++
++    return false;
++}
++
++static bool file_exists(const char *path) {
++    return access(path, F_OK) == 0 ? true : false;
++}
++
++static const char *detect_lib_path(void) {
++    int i;
++
++    for (i = 0; lib_paths[i]; i++) {
++        bool found = file_exists(lib_paths[i]);
++        pa_log_debug("look for %s...%s", lib_paths[i], found ? "found" : "no");
++        if (found)
++            return lib_paths[i];
++    }
++
++    return NULL;
++}
++
++int pa__init(pa_module *m) {
++    pa_modargs *ma = NULL;
++    const char *module_id;
++    const char *lib_path;
++    DroidAfGlueCallbacks cb;
++
++    pa_assert(m);
++
++    if (!(ma = pa_modargs_new(m->argument, valid_modargs))) {
++        pa_log("Failed to parse module arguments.");
++        goto fail;
++    }
++
++    if ((lib_path = pa_modargs_get_value(ma, "lib", NULL))) {
++        if (!file_exists(lib_path)) {
++            pa_log("Audioflingerglue library with path '%s' not found.", lib_path);
++            goto fail;
++        }
++    } else
++        lib_path = detect_lib_path();
++
++    if (!lib_path) {
++        pa_log("Could not find audioflingerglue library.");
++        goto fail;
++    }
++
++    if (!audioflingerglue_initialize(lib_path)) {
++        pa_log("Could not load audioflingerglue library.");
++        goto fail;
++    }
++
++    struct userdata *u = pa_xnew0(struct userdata, 1);
++    u->core = m->core;
++    m->userdata = u;
++
++    module_id = pa_modargs_get_value(ma, "module_id", DEFAULT_MODULE_ID);
++
++    if (!(u->hw_module = pa_droid_hw_module_get(u->core, NULL, module_id))) {
++        pa_log("Couldn't get hw module %s, is module-droid-card loaded?", module_id);
++        goto fail;
++    }
++
++    cb.set_parameters = set_parameters_cb;
++    cb.get_parameters = get_parameters_cb;
++
++    u->glue = droid_afglue_connect(&cb, u);
++
++    if (!u->glue) {
++        pa_log("Couldn't establish connection to miniafservice.");
++        goto fail;
++    }
++
++    return 0;
++
++fail:
++    if (ma)
++        pa_modargs_free(ma);
++
++    pa__done(m);
++
++    return -1;
++}
++
++void pa__done(pa_module *m) {
++    struct userdata *u;
++
++    pa_assert(m);
++
++    if ((u = m->userdata)) {
++
++        if (u->glue)
++            droid_afglue_disconnect(u->glue);
++
++        if (u->hw_module)
++            pa_droid_hw_module_unref(u->hw_module);
++
++        pa_xfree(u);
++    }
++}
