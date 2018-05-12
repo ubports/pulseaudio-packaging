@@ -52,10 +52,10 @@
 0603-droid-port-priority-and-availability.patch
 
 0700-pulsecore-add-new-card-profile-hook.patch
-0701-bluetooth-bluez5-wait-for-all-profiles-to-connect.patch
+# 0701-bluetooth-bluez5-wait-for-all-profiles-to-connect.patch
 
 # Fixes backported from PulseAudio 11.0
-0800-cb78d6f5-fix-lp1690028-lp1672171.patch
+# 0800-cb78d6f5-fix-lp1690028-lp1672171.patch
 0801-d985276c-fix-lp1539209-lp1562817.patch
 0802-alsa-mixer-Add-support-for-usb-audio-in-the-Dell-doc.patch
 0803-droid-fix-crash-on-module-load.patch

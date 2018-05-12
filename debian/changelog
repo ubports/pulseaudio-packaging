@@ -1,4 +1,4 @@
-pulseaudio (1:8.0-0ubuntu3.10) xenial; urgency=medium
+pulseaudio (1:8.0-0ubuntu3.20) xenial; urgency=medium
 
   * Revert Cherrypick fixes for checking profile availabilities
 	- some regression exists in the 1:8.0-0ubuntu3.9, now reverting the
