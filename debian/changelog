@@ -1,19 +1,31 @@
-pulseaudio (1:8.0-1ubports3) xenial; urgency=medium
+pulseaudio (1:8.0-0ubuntu3.10) xenial; urgency=medium
 
-  * Add support to build out of tree modules
+  * Revert Cherrypick fixes for checking profile availabilities
+	- some regression exists in the 1:8.0-0ubuntu3.9, now reverting the
+	  change of 3.9, then the content of 1:8.0-0ubuntu3.10 is same as
+	  1:8.0-0ubuntu3.8 (LP: #1767784)
 
- -- Marius Gripsgard <marius@ubports.com>  Mon, 09 Apr 2018 23:36:22 +0200
+ -- Hui Wang <hui.wang@canonical.com>  Wed, 2 May 2018 15:32:26 +0800
 
-pulseaudio (1:8.0-1ubports1) xenial; urgency=medium
+pulseaudio (1:8.0-0ubuntu3.9) xenial; urgency=medium
 
-  [Łukasz 'sil2100' Zemczak]
-  * debian/control:
-    - Build all binaries for arm64 as well.
+  * Cherrypick fixes for checking profile availabilities (LP: #1750947)
+	- a222a079: set availability for (some) unavailable profiles
 
-  [Marius Gripsgard]
-  * Import to ubports
+ -- Hui Wang <hui.wang@canonical.com>  Thu, 08 Mar 2018 10:38:56 +0800
 
- -- Marius Gripsgard <marius@ubports.com>  Thu, 28 Dec 2017 10:05:34 +0100
+pulseaudio (1:8.0-0ubuntu3.8) xenial; urgency=medium
+
+  [Hui Wang]
+  * Cherrypick fixes for supporting audio on Dell dock TB16:
+    - 60c0edd5: Add support for usb audio on the Dell dock TB16 (LP: #1718824)
+    - 2f1dcea3: build-sys: add the Dell dock TB16 configuration (LP: #1718824)
+
+  [Daniel van Vugt]
+  * Tidy up: Rename 0901-droid-fix-crash-on-module-load.patch to
+                    0803-droid-fix-crash-on-module-load.patch
+
+ -- Daniel van Vugt <daniel.van.vugt@canonical.com>  Tue, 12 Dec 2017 11:44:08 +0800
 
 pulseaudio (1:8.0-0ubuntu3.7) xenial; urgency=medium
 

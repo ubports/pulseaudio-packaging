@@ -54,12 +54,13 @@
 0700-pulsecore-add-new-card-profile-hook.patch
 0701-bluetooth-bluez5-wait-for-all-profiles-to-connect.patch
 
-# Fixes for common crashes, backported from PulseAudio 11.0
+# Fixes backported from PulseAudio 11.0
 0800-cb78d6f5-fix-lp1690028-lp1672171.patch
 0801-d985276c-fix-lp1539209-lp1562817.patch
-0901-droid-fix-crash-on-module-load.patch
+0802-alsa-mixer-Add-support-for-usb-audio-in-the-Dell-doc.patch
+0803-droid-fix-crash-on-module-load.patch
+0804-build-sys-add-the-Dell-dock-TB16-configuration.patch
 
 # Allow out of tree modules
 0902-install_pulsecore_headers.patch
-
 0903-add-audioflingerglue.patch
