@@ -1,0 +1,4 @@
+usr/lib/*/pulse/gsettings-helper
+usr/lib/pulse-*/modules/module-gsettings.so
+usr/share/GConf/gsettings/pulseaudio.convert
+usr/share/glib-2.0/schemas/org.freedesktop.pulseaudio.gschema.xml

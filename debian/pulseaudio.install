@@ -16,10 +16,12 @@ usr/lib/pulse-*/modules/libprotocol-http.so
 usr/lib/pulse-*/modules/libprotocol-native.so
 usr/lib/pulse-*/modules/libprotocol-simple.so
 usr/lib/pulse-*/modules/librtp.so
-usr/lib/pulse-*/modules/libwebrtc-util.so
+[linux-any] usr/lib/pulse-*/modules/libwebrtc-util.so
 [linux-any] usr/lib/pulse-*/modules/module-alsa-sink.so
 [linux-any] usr/lib/pulse-*/modules/module-alsa-source.so
 usr/lib/pulse-*/modules/module-always-sink.so
+usr/lib/pulse-*/modules/module-always-source.so
+usr/lib/pulse-*/modules/module-console-kit.so
 usr/lib/pulse-*/modules/module-device-restore.so
 usr/lib/pulse-*/modules/module-echo-cancel.so
 usr/lib/pulse-*/modules/module-stream-restore.so
@@ -29,8 +31,6 @@ usr/lib/pulse-*/modules/module-cli.so
 usr/lib/pulse-*/modules/module-combine.so
 usr/lib/pulse-*/modules/module-default-device-restore.so
 usr/lib/pulse-*/modules/module-detect.so
-usr/lib/pulse-*/modules/module-esound-sink.so
-usr/lib/pulse-*/modules/module-equalizer-sink.so
 usr/lib/pulse-*/modules/module-http-protocol-tcp.so
 usr/lib/pulse-*/modules/module-http-protocol-unix.so
 usr/lib/pulse-*/modules/module-intended-roles.so
@@ -77,6 +77,9 @@ usr/lib/pulse-*/modules/module-virtual-sink.so
 usr/lib/pulse-*/modules/module-virtual-source.so
 usr/lib/pulse-*/modules/module-switch-on-port-available.so
 usr/lib/pulse-*/modules/module-virtual-surround-sink.so
+usr/lib/pulse-*/modules/module-snap-policy.so
+usr/lib/pulse-*/modules/module-x11*.so
+usr/lib/pulse-*/modules/module-allow-passthrough.so
 [linux-any] usr/lib/pulse-*/modules/module-systemd-login.so
 [linux-any] usr/lib/systemd/user/pulseaudio.*
 usr/share/bash-completion/completions/*

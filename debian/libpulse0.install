@@ -1,4 +1,6 @@
+#!/usr/bin/dh-exec
 etc/pulse/client.conf
+[linux-any] debian/00-disable-autospawn.conf etc/pulse/client.conf.d/
 usr/lib/*/libpulse.so.*
 usr/lib/*/libpulse-simple.so.*
 usr/lib/*/pulseaudio/libpulsecommon-*.so

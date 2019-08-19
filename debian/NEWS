@@ -1,0 +1,9 @@
+pulseaudio (11.1-2) unstable; urgency=medium
+
+  * Since this version, pulseaudio disables autospawn by default on linux
+    systems, and replaces that with systemd socket activation. If you are not
+    using systemd, then please edit or remove
+    /etc/pulse/client.conf.d/00-disable-autospawn.conf
+    to re-enable it.
+
+ -- Felipe Sateler <fsateler@debian.org>  Fri, 17 Nov 2017 20:13:57 -0300

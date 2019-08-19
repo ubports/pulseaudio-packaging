@@ -4,72 +4,64 @@ Priority: optional
 Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
 XSBC-Original-Maintainer: Pulseaudio maintenance team <pkg-pulseaudio-devel@lists.alioth.debian.org>
 Uploaders: Sjoerd Simons <sjoerd@debian.org>,
-    Balint Reczey <balint@balintreczey.hu>,
     Felipe Sateler <fsateler@debian.org>
-# The following packages can be omitted for bootstrapping (DEB_BUILD_PROFILES=stage1):
-#  libbluetooth-dev
-Build-Depends: android-headers-19 (>= 23) [armhf arm64 i386 amd64],
-    android-headers-22 (>= 23) [armhf arm64 i386 amd64],
-    audioflingerglue-dev,
-    debhelper (>= 9),
-    cdbs (>= 0.4.93),
+Build-Depends: debhelper-compat (= 11),
     check,
-    dh-autoreconf,
     dh-exec,
+    dpkg-dev (>= 1.17.14),
     intltool,
     libapparmor-dev [linux-any],
-    libandroid-properties-dev [armhf arm64 i386 amd64],
-    libasound2-dev (>= 1.0.24) [linux-any],
+    libasound2-dev [linux-any],
     libasyncns-dev,
-    libatomic-ops-dev,
     libavahi-client-dev,
-    libbluetooth-dev (>= 4.40) [linux-any],
+    libbluetooth-dev [linux-any] <!stage1>,
     libsbc-dev [linux-any],
     libcap-dev [linux-any],
-    libdbus-cpp-dev [armhf arm64 i386 amd64],
     libfftw3-dev,
     libgconf2-dev,
     libglib2.0-dev,
-    libhardware-dev [armhf arm64 i386 amd64],
-    libhybris-dev,
     libgtk-3-dev,
     libice-dev,
     libjack-dev,
     libjson-c-dev (>= 0.11),
-    liblircclient-dev,
+    liblirc-dev,
     libltdl-dev (>= 2.2.6a-2),
     liborc-0.4-dev (>= 1:0.4.11),
     libsamplerate0-dev,
     libsndfile1-dev (>= 1.0.20),
+    liblircclient-dev,
+    libltdl-dev,
+    liborc-0.4-dev,
+    libsamplerate0-dev,
+    libsnapd-glib-dev,
+    libsndfile1-dev,
+    libsoxr-dev (>= 0.1.1),
     libspeexdsp-dev (>= 1.2~rc1),
     libssl-dev,
     libsystemd-dev [linux-any],
     libtdb-dev [!hurd-any],
-    libtrust-store-dev [armhf arm64 i386 amd64],
-    libudev-dev (>= 143) [linux-any],
-    libwebrtc-audio-processing-dev,
+    libudev-dev [linux-any],
+    libwebrtc-audio-processing-dev (>= 0.2) [linux-any],
     libwrap0-dev,
     libx11-xcb-dev,
-    libxcb1-dev (>= 1.6),
+    libxcb1-dev,
     libxtst-dev
-Standards-Version: 3.9.6
-Vcs-Git: https://git.launchpad.net/~ubuntu-audio-dev/pulseaudio?h=ubuntu-xenial
-Vcs-Browser: https://git.launchpad.net/~ubuntu-audio-dev/pulseaudio?h=ubuntu-xenial
+Standards-Version: 4.2.1
+Rules-Requires-Root: no
+Vcs-Browser: https://git.launchpad.net/~ubuntu-audio-dev/pulseaudio
+Vcs-Git: https://git.launchpad.net/~ubuntu-audio-dev/pulseaudio
 Homepage: http://www.pulseaudio.org
-XS-Testsuite: autopkgtest
 
 Package: pulseaudio
 Architecture: any
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}, adduser,
-  lsb-base (>= 3.2-13), libpam-systemd,
-  udev (>= 143) [linux-any],
+  lsb-base (>= 3.2-13),
   libasound2-plugins [linux-any],
   libpulse0 (= ${binary:Version}),
   pulseaudio-utils
-Breaks: libltdl3 (<< 1.5.24-1), avahi-daemon (<< 0.6.31-3)
-Recommends: pulseaudio-module-x11, rtkit
-Suggests: pavumeter, pavucontrol, paman, paprefs
+Recommends: rtkit, libpam-systemd, dbus-user-session
+Suggests: udev [linux-any], pavumeter, pavucontrol, paman, paprefs, ubuntu-sounds
 Description: PulseAudio sound server
  PulseAudio, previously known as Polypaudio, is a sound server for POSIX and
  WIN32 systems. It is a drop in replacement for the ESD sound server with
@@ -118,23 +110,6 @@ Description: Command line tools for the PulseAudio sound server
    pax11publish - Store/retrieve PulseAudio default server/sink/source
                   settings in the X11 root window.
 
-Package: pulseaudio-esound-compat
-Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
-Breaks: pulseaudio (<< 0.9.7)
-Conflicts: esound
-Replaces: esound
-Provides: esound
-Description: PulseAudio ESD compatibility layer
- PulseAudio, previously known as Polypaudio, is a sound server for POSIX and
- WIN32 systems. It is a drop in replacement for the ESD sound server with
- much better latency, mixing/re-sampling quality and overall architecture.
- .
- This package contains the ESD compatibility components used by some
- older versions of complete desktop environments, e.g., GNOME, and
- many useful applications. It enables a PulseAudio sound server to
- fully replace ESD.
-
 Package: pulseaudio-module-zeroconf
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, avahi-daemon
@@ -151,7 +126,6 @@ Description: Zeroconf module for PulseAudio sound server
 Package: pulseaudio-module-jack
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Breaks: libjack-jackd2-0 (<< 1.9.7), libjack0 (<< 1:0.118+svn4104)
 Description: jackd modules for PulseAudio sound server
  PulseAudio, previously known as Polypaudio, is a sound server for POSIX and
  WIN32 systems. It is a drop in replacement for the ESD sound server with
@@ -174,17 +148,18 @@ Description: lirc module for PulseAudio sound server
  .
  The module is called module-lirc.
 
-Package: pulseaudio-module-gconf
+Package: pulseaudio-module-gsettings
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: GConf module for PulseAudio sound server
+Description: GSettings module for PulseAudio sound server
  PulseAudio, previously known as Polypaudio, is a sound server for POSIX and
  WIN32 systems. It is a drop in replacement for the ESD sound server with
  much better latency, mixing/re-sampling quality and overall architecture.
  .
- This module enables PulseAudio to store additional configuration in GConf.
+ This module enables PulseAudio to store additional configuration in GSettings.
+ It supersedes the gconf module.
  .
- The module is called module-gconf.
+ The module is called module-gsettings.
 
 Package: pulseaudio-module-raop
 Architecture: any
@@ -196,39 +171,11 @@ Description: RAOP module for PulseAudio sound server
  .
  This module enables PulseAudio to stream audio to an Apple Airport Express.
 
-Package: pulseaudio-module-droid
-Architecture: armhf arm64 i386 amd64
-Priority: extra
-Depends: ${shlibs:Depends}, ${misc:Depends}
-Conflicts: pulseaudio (<< 0.9.14-2)
-Description: Android Audio HAL module for PulseAudio sound server
- PulseAudio, previously known as Polypaudio, is a sound server for POSIX and
- WIN32 systems. It is a drop in replacement for the ESD sound server with
- much better latency, mixing/re-sampling quality and overall architecture.
- .
- This module enables PulseAudio to work on top of the Android Audio HAL.
- .
- The module is called module-droid.
-
-Package: pulseaudio-module-trust-store
-Architecture: armhf arm64 i386 amd64
-Priority: extra
-Depends: ${shlibs:Depends}, ${misc:Depends}
-Conflicts: pulseaudio (<< 0.9.14-2)
-Description: trust-store module for PulseAudio sound server
- PulseAudio, previously known as Polypaudio, is a sound server for POSIX and
- WIN32 systems. It is a drop in replacement for the ESD sound server with
- much better latency, mixing/re-sampling quality and overall architecture.
- .
- This module enables PulseAudio to use the trust-store in Ubuntu touch systems.
- .
- The module is called module-trust-store.
-
 Package: pulseaudio-module-bluetooth
+Build-Profiles: <!stage1>
 Architecture: linux-any
-Priority: extra
+Priority: optional
 Depends: ${shlibs:Depends}, ${misc:Depends}, bluez (>= 5.23)
-Breaks: pulseaudio (<< 0.9.14-2)
 Description: Bluetooth module for PulseAudio sound server
  PulseAudio, previously known as Polypaudio, is a sound server for POSIX and
  WIN32 systems. It is a drop in replacement for the ESD sound server with
@@ -239,19 +186,19 @@ Description: Bluetooth module for PulseAudio sound server
  .
  The module is called module-bluetooth
 
-Package: pulseaudio-module-x11
+Package: pulseaudio-equalizer
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, pulseaudio-utils
-Description: X11 module for PulseAudio sound server
+Depends: ${shlibs:Depends}, ${misc:Depends},
+ python, python-pyqt5, python-sip, python-dbus.mainloop.pyqt5, python-dbus
+Description: Equalizer sink module for PulseAudio sound server
  PulseAudio, previously known as Polypaudio, is a sound server for POSIX and
  WIN32 systems. It is a drop in replacement for the ESD sound server with
  much better latency, mixing/re-sampling quality and overall architecture.
  .
- This module enables PulseAudio to publish itself as the default sound
- server to the X11 root window automatically upon startup. There is also a
- module to playback a sound file in place of the X11 bell beep.
+ This package provides an equalizer sink and an interface to configure the
+ equalizer, qpaeq.
  .
- The modules are called module-x11-publish and module-x11-bell.
+ The module is called module-equalizer-sink.
 
 Package: libpulse0
 Section: libs
@@ -259,7 +206,6 @@ Architecture: any
 Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends}
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Breaks: pavucontrol (<< 0.9.8)
 Suggests: pulseaudio
 Description: PulseAudio client libraries
  PulseAudio, previously known as Polypaudio, is a sound server for POSIX and
@@ -283,14 +229,6 @@ Description: PulseAudio client libraries (glib support)
  via PulseAudio's native interface.
  .
  This package adds support for glib2 client applications.
- 
-Package: pulseaudio-dev
-Section: libdevel
-Architecture: any
-Multi-Arch: same
-Depends: ${misc:Depends},
-  pulseaudio (= ${binary:Version})
-Description: Pulsecore development headers
 
 Package: libpulse-dev
 Section: libdevel
@@ -313,8 +251,6 @@ Architecture: any
 Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends}
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Conflicts: pulseaudio-utils (<< 3.0)
-Replaces: pulseaudio-utils (<< 3.0)
 Description: PulseAudio OSS pre-load library
  PulseAudio, previously known as Polypaudio, is a sound server for POSIX and
  WIN32 systems. It is a drop in replacement for the ESD sound server with
@@ -322,4 +258,3 @@ Description: PulseAudio OSS pre-load library
  .
  This package provides the pre-load library used to redirect applications
  using OSS through pulseaudio.
-

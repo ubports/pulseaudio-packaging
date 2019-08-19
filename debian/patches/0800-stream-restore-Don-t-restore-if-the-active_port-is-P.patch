@@ -1,0 +1,84 @@
+From 568a08ed3fe0318df0e768abc090582569267f37 Mon Sep 17 00:00:00 2001
+From: Hui Wang <hui.wang@canonical.com>
+Date: Wed, 15 May 2019 14:39:27 +0800
+Subject: [PATCH] stream-restore: Don't restore if the active_port is
+ PA_AVAILABLE_NO
+
+BugLink: https://launchpad.net/bugs/1834138
+
+We met two problems recently, one happened on a Lenovo machine with
+dual analogue codecs, the other happened on a Dell machine with
+a digital mic directly connected to PCH. The two problems are
+basically same, there is an internal mic and an external mic, the
+internal mic always shows up in the gnome-control-center, the external
+mic only shows up when it is plugged. After the external mic is
+plugged and users select it from gnome-control-center, the
+gnome-control-center will read all saved streams through extension_cb,
+and bind the source of external mic to all streams, after that the
+apps only record sound via the source of external mic, after the
+external mic is unplugged, the internal mic will automatically be
+selected since it is the only left input device in the
+gnome-control-center, since users don't select it, all streams are
+still bond the source of external mic. When users record sound via
+apps, they can't record any sound even the default_source is the
+source of internal mic and the internal mic is selected in the UI.
+
+It is very common that a machine has internal mic and external mic,
+but this problem didn't expose before, that is because both internal
+mic and external mic belong to one source, but for those two
+machines, the internal mic belongs to one source, while the external
+mic belongs to another source (they are in differnt codecs or one is
+in the codec and the other is from PCH),
+
+To fix it with a mininal change, we just check if the active_port is
+PA_AVAILABLE_NO or not when building a new stream, if it is, don't
+restore the device to the new built stream, let pa_source_output_new()
+decide the source device for this stream.
+
+And we also do the same change to sink_input.
+
+This change only affects the new built streams, it will not change
+the database, so the users' preference is still saved in the database,
+after the active_port is not PA_AVAILABLE_NO, the new streams will
+still restore to the preferred device.
+
+Signed-off-by: Hui Wang <hui.wang@canonical.com>
+(cherry picked from commit cbaeea4af7669003ae97064fe12fa75fd4870611)
+Signed-off-by: Hui Wang <hui.wang@canonical.com>
+---
+ src/modules/module-stream-restore.c | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/src/modules/module-stream-restore.c b/src/modules/module-stream-restore.c
+index e562e4edd..5312d3052 100644
+--- a/src/modules/module-stream-restore.c
++++ b/src/modules/module-stream-restore.c
+@@ -1454,8 +1454,10 @@ static pa_hook_result_t sink_input_new_hook_callback(pa_core *c, pa_sink_input_n
+            same time, in which case we want to make sure we don't
+            interfere with that */
+         if (s && PA_SINK_IS_LINKED(pa_sink_get_state(s)))
+-            if (pa_sink_input_new_data_set_sink(new_data, s, true, false))
+-                pa_log_info("Restoring device for stream %s.", name);
++            if (!s->active_port || s->active_port->available != PA_AVAILABLE_NO) {
++                if (pa_sink_input_new_data_set_sink(new_data, s, true, false))
++                    pa_log_info("Restoring device for stream %s.", name);
++	    }
+ 
+         entry_free(e);
+     }
+@@ -1557,8 +1559,10 @@ static pa_hook_result_t source_output_new_hook_callback(pa_core *c, pa_source_ou
+            same time, in which case we want to make sure we don't
+            interfere with that */
+         if (s && PA_SOURCE_IS_LINKED(pa_source_get_state(s))) {
+-            pa_log_info("Restoring device for stream %s.", name);
+-            pa_source_output_new_data_set_source(new_data, s, true, false);
++            if (!s->active_port || s->active_port->available != PA_AVAILABLE_NO) {
++                pa_log_info("Restoring device for stream %s.", name);
++                pa_source_output_new_data_set_source(new_data, s, true, false);
++	    }
+         }
+ 
+         entry_free(e);
+-- 
+2.17.1
+

@@ -1,20 +1,673 @@
-pulseaudio (1:8.0-1ubports4) xenial; urgency=medium
+pulseaudio (1:12.2-2ubuntu4~16.04.1) xenial; urgency=medium
 
-  * Add support to build out of tree modules
-  * Add Audioflinger glue
+  * Backport to xenial.
 
- -- Marius Gripsgard <marius@ubports.com>  Mon, 09 Apr 2018 23:36:22 +0200
+ -- Rodney Dawes <dobey.pwns@gmail.com>  Mon, 19 Aug 2019 15:13:34 -0400
 
-pulseaudio (1:8.0-1ubports1) xenial; urgency=medium
+pulseaudio (1:12.2-2ubuntu4) eoan; urgency=medium
 
-  [Łukasz 'sil2100' Zemczak]
+  * debian/patches/0006-load-module-x11-bell.patch:
+    - remove that old distro patch, it's undocumented, not needed since
+      GNOME handles the login sound by itself and create issues in some
+      cases (duplicate sound, not respecting the UI choice)
+      (lp: #1827842)
+
+  [ Hui Wang ]
+  * d/p/0800-stream-restore-Don-t-restore-if-the-active_port-is-P.patch:
+    - Don't restore the streams to sinks/sources with only unavailable ports
+      (LP: #1834138)
+
+ -- Sebastien Bacher <seb128@ubuntu.com>  Fri, 28 Jun 2019 11:45:10 +0200
+
+pulseaudio (1:12.2-2ubuntu3) disco; urgency=medium
+
+  * debian/pulseaudio.links: chmod +x so that dh-exec actually works.
+
+ -- Adam Conrad <adconrad@ubuntu.com>  Tue, 16 Apr 2019 07:54:26 -0600
+
+pulseaudio (1:12.2-2ubuntu2) disco; urgency=medium
+
+  * Cherrypick changes from 12.2-3 to stop compiling with -ffast-math
+    and to fix alsa/pulseaudio config file integration (LP: #1824103)
+
+ -- Adam Conrad <adconrad@ubuntu.com>  Tue, 16 Apr 2019 07:23:01 -0600
+
+pulseaudio (1:12.2-2ubuntu1) disco; urgency=medium
+
+  * Add steelseries headset support.  This provides sufficient support to
+    enable the Steelseries Arctis 5 and 7 Gaming Headsets (LP: #1758736).
+
+ -- Dave Chiluk <chiluk@ubuntu.com>  Tue, 12 Feb 2019 00:50:27 -0600
+
+pulseaudio (1:12.2-2ubuntu0) disco; urgency=medium
+
+  * Merged with Debian git (12.2-2 + 8ec20f69) (lp: #1807079):
+    - Do not build esound compatibility anymore (Closes: #561780).
+    - Add volume-test.patch to replace 0050-disable-volume-test.patch, so
+      now we can run the test instead of disabling it (LP: #1785556).
+    - d/changelog & d/control: fix lintian complaint about
+      file-contains-trailing-whitespace.
+
+ -- Daniel van Vugt <daniel.van.vugt@canonical.com>  Tue, 27 Nov 2018 16:35:03 +0800
+
+pulseaudio (1:12.2-0ubuntu4) cosmic; urgency=medium
+
+  * No change rebuild for launchpad translations import
+
+ -- Sebastien Bacher <seb128@ubuntu.com>  Tue, 09 Oct 2018 11:15:27 +0200
+
+pulseaudio (1:12.2-0ubuntu3) cosmic; urgency=medium
+
+  [ Ken VanDine ]
+  * Update patch tags with more detailed descriptions and a note about 
+    not forwarding upstream:
+    - 0700-modules-add-snappy-policy-module.patch
+    - 0701-enable-snap-policy-module.patch
+
+  [ James Henstridge ]
+  * 0700-modules-add-snappy-policy-module.patch: grant recording access
+    to snaps with classic confinement. (LP: #1787324)
+
+ -- Ken VanDine <ken.vandine@canonical.com>  Wed, 29 Aug 2018 09:18:41 -0400
+
+pulseaudio (1:12.2-0ubuntu2) cosmic; urgency=medium
+
+  * Update snap policy to make access to audio recording conditional on
+    plugging the "pulseaudio" or "audio-record" interfaces (LP: #1781428):
+    - 0700-modules-add-snappy-policy-module.patch: rewrite to query
+      snapd for the client's plugged interfaces.
+    - 0701-enable-snap-policy-module.patch: enable the module in the
+      default configuration.
+    - Build depend on libsnapd-glib-dev.
+  * Remove module-trust-store patch set:
+    - 0409-Trust-store-patch.patch: trimmed down to pulsecore changes.
+    - 0410-Add-thread-to-activate-trust-store-interface.patch: removed.
+    - 0417-increase-timeout-check-apparmor.patch: removed.
+
+ -- James Henstridge <james.henstridge@canonical.com>  Tue, 07 Aug 2018 17:01:22 +0800
+
+pulseaudio (1:12.2-0ubuntu1) cosmic; urgency=medium
+
+  * New upstream release 12.2 (LP: #1785551):
+    - Fixed broken configure script that was present in release 12.1.
+  * New upstream release 12.1:
+    - Fixed crash when switching to A2DP bluetooth profile
+    - Fixed plugin search path in module-ladspa-sink
+    - Fixed file permissions for the pipes created by module-pipe-sink and
+      module-pipe-source
+  * Add 0050-disable-volume-test.patch to work around volume-test failures
+    (LP: #1785556).
+
+ -- Daniel van Vugt <daniel.van.vugt@canonical.com>  Mon, 06 Aug 2018 13:42:13 +0800
+
+pulseaudio (1:12.0-1ubuntu1) cosmic; urgency=medium
+
+  * New upstream release 12.0 (LP: #1778178):
+    - Better latency reporting (and hence better A/V sync) with the A2DP
+      bluetooth profile
+    - Much more accurate latency reporting for AirPlay devices
+    - Fixed a crash or high CPU use problem with Intel HDMI LPE
+    - module-switch-on-connect now ignores virtual devices
+    - When using passthrough for compressed audio, set the "non-audio" bit
+    - Prioritize HDMI output over S/PDIF output
+    - HSP support for more bluetooth headsets
+    - Choose the A2DP bluetooth profile by default instead of HSP
+    - New "sink_input_properties" module argument for module-ladspa-sink
+    - New "use_system_clock_for_timing" module argument for module-pipe-sink
+    - module-pipe-sink can now use an existing pipe
+    - Steelseries Arctis 7 USB headset stereo output support
+    - Dell Thunderbolt Dock TB16 speaker jack support
+    - Fixed digital input support for some USB sound cards
+    - Fixed Native Instruments Traktor Audio 6 detection
+    - Ability to disable input or output on macOS
+    - New "dereverb" option for the Speex echo canceller
+    - New module: module-always-source
+    - State files not any more readable by all users in the system mode
+    - module-augment-properties now uses XDG_DATA_DIRS to find .desktop files
+    - Updates for the Vala bindings
+    - The GConf dependency can now be avoided
+    - qpaeq license changed from AGPL to LGPL
+    - qpaeq ported to Qt 5
+    - Compatibility with glibc 2.27
+    - The esdcompat tool isn't any more installed if esound support is disabled
+  * Merge latest Debian changes (version 12.0-1)
+  * Dropped upstreamed patches:
+    - 0800-fix-lp1720684.patch
+    - 0802-alsa-mixer-Add-support-for-usb-audio-in-the-Dell-doc.patch
+    - 0803-build-sys-add-the-Dell-dock-TB16-configuration.patch
+    - 0804-bluez5-device-Rewrite-of-thread-function-reduce-send.patch
+    - 0805-bluez5-device-Fix-memory-leak-in-sco_process_render.patch
+  * Refreshed and fixed patches:
+    - 0022-inotify-wrapper-Quit-daemon-if-pid-file-is-removed.patch
+    - 0407-access-Add-access-control-hooks.patch
+    - 0408-protocol-native-add-access-checks.patch
+    - 0409-Trust-store-patch.patch
+    - 0410-Add-thread-to-activate-trust-store-interface.patch
+    - 0417-increase-timeout-check-apparmor.patch
+    - 0700-modules-add-snappy-policy-module.patch
+    - memfd-glibc2.27.patch
+
+ -- Daniel van Vugt <daniel.van.vugt@canonical.com>  Mon, 25 Jun 2018 16:04:50 +0800
+
+pulseaudio (1:11.1-1ubuntu8) cosmic; urgency=medium
+
+  * 0804-bluez5-device-Rewrite-of-thread-function-reduce-send.patch,
+    0805-bluez5-device-Fix-memory-leak-in-sco_process_render.patch:
+    - Reduce latency over bluetooth, using A2DP, when the connection drops
+      temporarily (LP: #405294).
+
+ -- Alberto Milone <alberto.milone@canonical.com>  Mon, 21 May 2018 16:41:41 +0200
+
+pulseaudio (1:11.1-1ubuntu7) bionic; urgency=medium
+
+  * Drop build-dependency on dbus-cpp, which is not actually used and is to
+    be removed.
+  * debian/patches/memfd-glibc2.27.patch: fix build failure with glibc
+    2.27.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Wed, 14 Mar 2018 17:06:53 -0700
+
+pulseaudio (1:11.1-1ubuntu6) bionic; urgency=high
+
+  * No change rebuild against openssl1.1.
+
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Mon, 05 Feb 2018 16:52:12 +0000
+
+pulseaudio (1:11.1-1ubuntu5) bionic; urgency=medium
+
+  * Drop use of trust-store, which is unmaintained and fails to build.
+    LP: #1739469.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Thu, 01 Feb 2018 16:12:47 -0800
+
+pulseaudio (1:11.1-1ubuntu4) bionic; urgency=high
+
+  * 0030-load-module-switch-on-connect.patch: Correct typo in default.pa
+    causing pulseaudio startup failure. (LP: #1742750, LP: #1732629)
+  * Refresh patches to apply more cleanly:
+    - 0802-alsa-mixer-Add-support-for-usb-audio-in-the-Dell-doc.patch
+    - 0803-build-sys-add-the-Dell-dock-TB16-configuration.patch
+
+ -- Daniel van Vugt <daniel.van.vugt@canonical.com>  Fri, 12 Jan 2018 10:23:11 +0800
+
+pulseaudio (1:11.1-1ubuntu3) bionic; urgency=medium
+
+  * 0802-alsa-mixer-Add-support-for-usb-audio-in-the-Dell-doc.patch: Restore
+    patch that was accidentally dropped in the upgrade to 11.1 (LP: #1718824)
+  * 0030-load-module-switch-on-connect.patch: Modify module load order to
+    improve device switching reliability (LP: #1732629)
+  * 0803-build-sys-add-the-Dell-dock-TB16-configuration.patch: add the Dell
+    dock TB16 configuration (LP: #1718824)
+
+ -- Daniel van Vugt <daniel.van.vugt@canonical.com>  Thu, 11 Jan 2018 17:25:38 +0800
+
+pulseaudio (1:11.1-1ubuntu2) bionic; urgency=medium
+
+  * Add 0800-fix-lp1720684.patch to ensure the default Bluetooth audio
+    profile is the higher quality A2DP rather than HSP/HFP. (LP: #1720684)
+
+ -- Daniel van Vugt <daniel.van.vugt@canonical.com>  Fri, 15 Dec 2017 09:49:25 +0100
+
+pulseaudio (1:11.1-1ubuntu1) bionic; urgency=medium
+
+  * Drop upstreamed patches:
+    - 0800-cb78d6f5-fix-lp1690028-lp1672171.patch
+    - 0801-d985276c-fix-lp1539209-lp1562817.patch
+    - 0802-alsa-mixer-Add-support-for-usb-audio-in-the-Dell-doc.patch
+  * Refreshed patches:
+    - 0001-volume-config-changes.patch
+    - 0022-inotify-wrapper-Quit-daemon-if-pid-file-is-removed.patch
+    - 0407-access-Add-access-control-hooks.patch
+    - 0408-protocol-native-add-access-checks.patch (and fixed conflicts)
+    - 0409-Trust-store-patch.patch
+    - 0417-increase-timeout-check-apparmor.patch
+    - 0700-modules-add-snappy-policy-module.patch
+  * Merge latest Debian changes (version 11.1-1, see below) (LP: #1716700)
+    - Includes support for newer AirPlay hardware (LP: #951120)
+
+ -- Daniel van Vugt <daniel.van.vugt@canonical.com>  Wed, 01 Nov 2017 16:13:53 +0800
+
+pulseaudio (11.1-1) unstable; urgency=medium
+
+  * New upstream version 11.1
+    - Drop all patches, applied upstream
+  * Bump debhelper compat to 10
+    - Drop explicit autoreconf, now implicit in debhelper 10
+
+ -- Felipe Sateler <fsateler@debian.org>  Wed, 20 Sep 2017 21:13:18 -0300
+
+pulseaudio (1:10.0-2ubuntu3) artful; urgency=medium
+
+  * Drop build-dependency on libhardware, was left in error by the
+    previous upload - all usage of libhardware was removed.
+
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Mon, 18 Sep 2017 20:40:57 +0100
+
+pulseaudio (1:10.0-2ubuntu2) artful; urgency=medium
+
+  * Drop Android support (used for Ubuntu Touch). This removes most of the
+    delta to upstream and Debian.
+
+ -- Daniel van Vugt <daniel.van.vugt@canonical.com>  Mon, 07 Aug 2017 17:16:23 +0800
+
+pulseaudio (1:10.0-2ubuntu1) artful; urgency=medium
+
+  * Cherrypick fixes for common crashes from upstream:
+    - cb78d6f5: SIGABRT in device_start_waiting_for_profiles (LP: #1690028,
+      LP: #1672171)
+    - d985276c: SIGABRT in pa_alsa_path_set_volume (LP: #1539209, LP: #1562817)
+  * Enable modules that needn't be disabled:
+    - module-role-cork: Now enabled per upstream defaults (LP: #1701688)
+    - module-switch-on-connect: Enabled for seamless hotplugging (LP: #1702794)
+  * Don't try to load sounds that don't exist in Kubuntu (LP: #1703334)
+  * Merge latest debian changes (see below).
+
+ -- Daniel van Vugt <daniel.van.vugt@canonical.com>  Tue, 11 Jul 2017 16:57:16 +0800
+
+pulseaudio (10.0-2) unstable; urgency=medium
+
+  [ Balint Reczey ]
+  * Removing myself from Uploaders
+
+  [ Scott Leggett ]
+  * Move AGPL-3 text into copyright file (Closes: #863082)
+
+ -- Scott Leggett <scott@sl.id.au>  Thu, 15 Jun 2017 20:07:30 +1000
+
+pulseaudio (1:10.0-1ubuntu2) zesty; urgency=medium
+
+  * debian/patches/0006-load-module-x11-bell.patch:
+    - Upload bell.ogg sample via pactl for module-x11-bell.  Original patch
+      by Daniel Hahler. (LP: #769314)
   * debian/control:
-    - Build all binaries for arm64 as well.
+    - Add ubuntu-sounds to Suggests list, since it ships the sound used by
+      default in above patch now.
 
-  [Marius Gripsgard]
-  * Import to ubports
+ -- Michael Terry <mterry@ubuntu.com>  Wed, 29 Mar 2017 14:24:19 -0400
 
- -- Marius Gripsgard <marius@ubports.com>  Thu, 28 Dec 2017 10:05:34 +0100
+pulseaudio (1:10.0-1ubuntu1) zesty; urgency=medium
+
+  * Merge with Debian experimental:
+    - epoch (my stupid fault :S)
+    - Add a module to allow pulseaudio to use the Android audio HAL
+    - Adjust gbp.conf file to point to the ubuntu branch for package builds
+    - Disable module-role-cork by default
+    - Load module-x11-bell in the start-pulseaudio-x11 script
+    - Hide pulseaudio from startup apps dialog
+    - Quit daemon if pid file is removed
+    - Avoid abort when poll descriptor is 0, such as when using it with the
+      audioflinger bridge, like done in ubuntu touch
+    - change default rlimit_rttime value to 200 ms
+    - Don't probe UCM profiles, trust that the profile writer knows what they
+      are doing
+    - Add card hook to allow modules to do something before a profile becomes
+      active
+    - Add an option to the bluez discovery module to set the profile
+    - Allow leaving bluetooth transport running while sink and source are
+      suspended.
+    - Add option to module-switch-on-connect to skip abstract devices
+    - Add property to module-device-restore to skip store/restore
+    - Add missing fields for sink_input/source_output info struct to the vala
+      bindings
+    - Add a build/run autopkgtest for libpulse-dev
+    - Drop libsoxr-dev build dep, its in universe
+    - Add support for the trust-store
+    - Add snappy support, preventing snap apps from recording audio, full
+      support via trust-store is planned
+    - Add epoch to conflicts/replaces
+    - Use liblirc-dev instead of liblircclient-dev
+
+ -- Luke Yelavich <themuso@ubuntu.com>  Tue, 24 Jan 2017 10:45:12 +1100
+
+pulseaudio (10.0-1) unstable; urgency=medium
+
+  * New upstream release
+    - Memfd is enabled by default. This unbreaks using pa within firejail or
+      similar. (Closes: #804120)
+  * Document qpaeq AGPL license
+
+ -- Felipe Sateler <fsateler@debian.org>  Thu, 19 Jan 2017 20:49:55 -0300
+
+pulseaudio (9.99.1-1) experimental; urgency=medium
+
+  * New upstream release candidate
+    - Drop all patches, applied upstream
+    - Install new allow-passthrough module
+  * shlibs.local: only the major and minor version
+    elements are used for the internal library SONAMEs
+
+ -- Felipe Sateler <fsateler@debian.org>  Wed, 04 Jan 2017 15:43:30 -0300
+
+pulseaudio (1:9.0-5ubuntu3) zesty; urgency=medium
+
+  * Re-add pulseaudio equalizer package, my understanding on build deps with
+    main/universe wasn't quite correct, and I only dropped it to get the
+    package through proposed, so a demotion of the equalizer package to
+    universe is the better solution
+
+ -- Luke Yelavich <themuso@ubuntu.com>  Wed, 23 Nov 2016 09:49:51 +1100
+
+pulseaudio (1:9.0-5ubuntu2) zesty; urgency=medium
+
+  * Drop pulseaudio equalizer package, python-qt4 is in universe
+
+ -- Luke Yelavich <themuso@ubuntu.com>  Wed, 09 Nov 2016 08:50:41 +1100
+
+pulseaudio (1:9.0-5ubuntu1) zesty; urgency=medium
+
+  * Merge with Debian:
+    - epoch (my stupid fault :S)
+    - Add a module to allow pulseaudio to use the Android audio HAL
+    - Adjust gbp.conf file to point to the ubuntu branch for package builds
+    - Disable module-role-cork by default
+    - Load module-x11-bell in the start-pulseaudio-x11 script
+    - Hide pulseaudio from startup apps dialog
+    - Quit daemon if pid file is removed
+    - Avoid abort when poll descriptor is 0, such as when using it with the
+      audioflinger bridge, like done in ubuntu touch
+    - change default rlimit_rttime value to 200 ms
+    - Don't probe UCM profiles, trust that the profile writer knows what they
+      are doing
+    - Add card hook to allow modules to do something before a profile becomes
+      active
+    - Add an option to the bluez discovery module to set the profile
+    - Allow leaving bluetooth transport running while sink and source are
+      suspended.
+    - Add option to module-switch-on-connect to skip abstract devices
+    - Add property to module-device-restore to skip store/restore
+    - Add missing fields for sink_input/source_output info struct to the vala
+      bindings
+    - Add a build/run autopkgtest for libpulse-dev
+    - Drop libsoxr-dev build dep, its in universe
+    - Add support for the trust-store
+    - Add snappy support, preventing snap apps from recording audio, full
+      support via trust-store is planned
+    - Add epoch to conflicts/replaces
+    - Use liblirc-dev instead of liblircclient-dev
+
+ -- Luke Yelavich <themuso@ubuntu.com>  Tue, 08 Nov 2016 12:07:26 +1100
+
+pulseaudio (9.0-5) unstable; urgency=medium
+
+  [ Felipe Sateler ]
+  * Remove unnecessary compression=xz dpkg source option
+  * Reformat patches for use with gbp-pq
+  * Backport upstream patch for building with openssl 1.1 (Closes: #828515)
+
+  [ Adam Conrad ]
+  * Bumping packages off the system requires Conflicts/Replaces, not Breaks.
+
+ -- Felipe Sateler <fsateler@debian.org>  Fri, 04 Nov 2016 19:18:11 -0300
+
+pulseaudio (1:9.0-4ubuntu1) zesty; urgency=medium
+
+  * Merge with Debian:
+    - epoch (my stupid fault :S)
+    - Add a module to allow pulseaudio to use the Android audio HAL
+    - Adjust gbp.conf file to point to the ubuntu branch for package builds
+    - Disable module-role-cork by default
+    - Load module-x11-bell in the start-pulseaudio-x11 script
+    - Hide pulseaudio from startup apps dialog
+    - Quit daemon if pid file is removed
+    - Avoid abort when poll descriptor is 0, such as when using it with the
+      audioflinger bridge, like done in ubuntu touch
+    - change default rlimit_rttime value to 200 ms
+    - Don't probe UCM profiles, trust that the profile writer knows what they
+      are doing
+    - Add card hook to allow modules to do something before a profile becomes
+      active
+    - Add an option to the bluez discovery module to set the profile
+    - Allow leaving bluetooth transport running while sink and source are
+      suspended.
+    - Add option to module-switch-on-connect to skip abstract devices
+    - Add property to module-device-restore to skip store/restore
+    - Add missing fields for sink_input/source_output info struct to the vala
+      bindings
+    - Add a build/run autopkgtest for libpulse-dev
+    - Drop libsoxr-dev build dep, its in universe
+    - Add support for the trust-store
+    - Add snappy support, preventing snap apps from recording audio, full
+      support via trust-store is planned
+    - Use conflicts/replaces instead of breaks to handle former
+      pulseaudio-module-udev split
+  * 0502-bluetooth-bluez5-bring-back-SCO-over-PCM-support.patch:
+    - Remove patch hunk that set u->transport to NULL. At the time this
+      code was written for 15.10, it was to prevent an assertion. Now with
+      newer versions of pulse, the opposite is happening in some circumstances
+      (LP: #1574324)
+  * debian/control: Use liblirc-dev instead of liblircclient-dev
+
+ -- Luke Yelavich <themuso@ubuntu.com>  Fri, 28 Oct 2016 12:20:16 +1100
+
+pulseaudio (9.0-4) unstable; urgency=medium
+
+  * Generate shlibs.local file on build, to avoid hardcoding
+    on each new upstream version
+  * Enable hardening flags
+  * Fix build on nonlinux archs
+
+ -- Felipe Sateler <fsateler@debian.org>  Sun, 09 Oct 2016 13:23:58 -0300
+
+pulseaudio (9.0-3) unstable; urgency=medium
+
+  [ Willem Mulder ]
+  * Split equalizer sink module into its own package (Closes: #794650)
+
+  [ Felipe Sateler ]
+  * Switch from CDBS to short-form dh
+  * Use upstream-provided pamon,parec,parecord links instead of creating our own
+  * Now that we ship everything upstream ships, enable --fail-missing
+
+ -- Felipe Sateler <fsateler@debian.org>  Sun, 28 Aug 2016 13:15:28 -0300
+
+pulseaudio (1:9.0-2ubuntu2) yakkety; urgency=medium
+
+  * Bumping packages off the system requires Conflicts/Replaces, not Breaks.
+  * Adjust version of pulseaudio-module-{udev,x11} dep to account for epoch.
+
+ -- Adam Conrad <adconrad@ubuntu.com>  Mon, 19 Sep 2016 12:57:56 -0600
+
+pulseaudio (1:9.0-2ubuntu1) yakkety; urgency=medium
+
+  * Merge with Debian:
+    - epoch (my stupid fault :S)
+    - Add a module to allow pulseaudio to use the Android audio HAL
+    - Adjust gbp.conf file to point to the ubuntu branch for package builds
+    - Disable module-role-cork by default
+    - Load module-x11-bell in the start-pulseaudio-x11 script
+    - Hide pulseaudio from startup apps dialog
+    - Quit daemon if pid file is removed
+    - Avoid abort when poll descriptor is 0, such as when using it with the
+      audioflinger bridge, like done in ubuntu touch
+    - change default rlimit_rttime value to 200 ms
+    - Don't probe UCM profiles, trust that the profile writer knows what they
+      are doing
+    - Add card hook to allow modules to do something before a profile becomes
+      active
+    - Add an option to the bluez discovery module to set the profile
+    - Allow leaving bluetooth transport running while sink and source are
+      suspended.
+    - Add option to module-switch-on-connect to skip abstract devices
+    - Add property to module-device-restore to skip store/restore
+    - Add missing fields for sink_input/source_output info struct to the vala
+      bindings
+    - Add a build/run autopkgtest for libpulse-dev
+    - Drop libsoxr-dev build dep, its in universe
+    - Add support for the trust-store
+    - Add snappy support, preventing snap apps from recording audio, full
+      support via trust-store is planned
+
+ -- Luke Yelavich <themuso@ubuntu.com>  Fri, 26 Aug 2016 08:56:25 +1000
+
+pulseaudio (9.0-2) unstable; urgency=medium
+
+  * Merge module-udev-detect back into main package.
+    Closes: #831518, #831355
+  * Demote udev Depends to Suggests.
+    Turns out libudev does not error out when udev is not available,
+    instead it just does nothing.
+  * Merge pulseaudio-module-x11 back into main package.
+    Split is not very useful, as main pulseaudio package
+    already depends on X libs. Therefore, only 56Kb are added
+    to the main package.
+    Closes: #833011
+  * Drop versioned breaks against ancient libltdl version
+  * Drop versioned breaks against avahi-daemon version older than jessie
+  * libpulsedsp: drop versioned breaks against ancient pulseaudio-utils
+    version
+
+ -- Felipe Sateler <fsateler@debian.org>  Fri, 12 Aug 2016 22:40:38 -0400
+
+pulseaudio (1:9.0-1.1ubuntu1) yakkety; urgency=medium
+
+  * Merge with experimental pulseaudio package:
+    - epoch (my stupid fault :S)
+    - Add a module to allow pulseaudio to use the Android audio HAL
+    - Adjust gbp.conf file to point to the ubuntu branch for package builds
+    - Disable module-role-cork by default
+    - Load module-x11-bell in the start-pulseaudio-x11 script
+    - Hide pulseaudio from startup apps dialog
+    - Quit daemon if pid file is removed
+    - Avoid abort when poll descriptor is 0, such as when using it with the
+      audioflinger bridge, like done in ubuntu touch
+    - change default rlimit_rttime value to 200 ms
+    - Don't probe UCM profiles, trust that the profile writer knows what they
+      are doing
+    - Add card hook to allow modules to do something before a profile becomes
+      active
+    - Add an option to the bluez discovery module to set the profile
+    - Allow leaving bluetooth transport running while sink and source are
+      suspended.
+    - Add option to module-switch-on-connect to skip abstract devices
+    - Add property to module-device-restore to skip store/restore
+    - Add missing fields for sink_input/source_output info struct to the vala
+      bindings
+    - Add a build/run autopkgtest for libpulse-dev
+    - Drop libsoxr-dev build dep, its in universe
+    - Add support for the trust-store
+    - Add snappy support, preventing snap apps from recording audio, full
+      support via trust-store is planned
+
+ -- Luke Yelavich <themuso@ubuntu.com>  Wed, 13 Jul 2016 08:44:48 +1000
+
+pulseaudio (9.0-1.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Add 0001-Fix_detection_of_online_CPUs.patch to fix pa_ncpus()
+    on systems with dynamic CPU configurations. Closes: #829618
+
+ -- John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>  Mon, 04 Jul 2016 23:11:29 +0200
+
+pulseaudio (9.0-1) unstable; urgency=medium
+
+  [ Luke Yelavich ]
+  * New upstream release
+  * Refreshed patches
+  * Update shlibs file
+
+ -- Felipe Sateler <fsateler@debian.org>  Sun, 03 Jul 2016 12:00:25 -0400
+
+pulseaudio (8.99.1-1) experimental; urgency=medium
+
+  * New upstream release candidate
+    - Closes: #813423
+    - Drop patches, applied upstream
+  * Bump dependency on libwebrtc-audio-processing to >= 0.2
+
+ -- Felipe Sateler <fsateler@debian.org>  Sat, 14 May 2016 15:16:09 -0300
+
+pulseaudio (8.0-3) experimental; urgency=medium
+
+  * Split module-udev-detect into a separate package
+
+ -- Felipe Sateler <fsateler@debian.org>  Thu, 21 Apr 2016 23:59:41 -0300
+
+pulseaudio (1:8.0-2ubuntu3) yakkety; urgency=medium
+
+  * No-change rebuild against libwebrtc-audio-processing1
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Sun, 10 Jul 2016 10:06:31 +0000
+
+pulseaudio (1:8.0-2ubuntu2) yakkety; urgency=medium
+
+  [ Simon Fels ]
+  * debian/patches/0700-modules-add-snappy-policy-module.patch:
+    - Add initial support for a snappy specific policy manager
+      which will deny all audio recording from snaps for now
+      until real integration with the trust-store is available. (LP: #1583057)
+  * debian/rules:
+    - Build with snappy support
+  * debian/pulseaudio.install:
+    - Include new snappy policy module
+
+ -- Luke Yelavich <themuso@ubuntu.com>  Wed, 01 Jun 2016 12:04:14 +1000
+
+pulseaudio (1:8.0-2ubuntu1) yakkety; urgency=medium
+
+  * Merge from Debian experimental, remaining changes:
+    - epoch (my stupid fault :S)
+    - Add a module to allow pulseaudio to use the Android audio HAL
+    - Adjust gbp.conf file to point to the ubuntu branch for package builds
+    - Disable module-role-cork by default
+    - Load module-x11-bell in the start-pulseaudio-x11 script
+    - Hide pulseaudio from startup apps dialog
+    - Quit daemon if pid file is removed
+    - Avoid abort when poll descriptor is 0, such as when using it with the
+      audioflinger bridge, like done in ubuntu touch
+    - change default rlimit_rttime value to 200 ms
+    - Don't probe UCM profiles, trust that the profile writer knows what they
+      are doing
+    - Add card hook to allow modules to do something before a profile becomes
+      active
+    - Add an option to the bluez4 discovery module to set the profile
+    - Allow leaving bluetooth transport running while sink and source are
+      suspended.
+    - Add option to module-switch-on-connect to skip abstract devices
+    - Add property to module-device-restore to skip store/restore
+    - Add missing fields for sink_input/source_output info struct to the vala
+      bindings
+    - Add a build/run autopkgtest for libpulse-dev
+    - Drop libsoxr-dev build dep, its in universe
+
+ -- Luke Yelavich <themuso@ubuntu.com>  Thu, 28 Apr 2016 10:12:25 +0200
+
+pulseaudio (8.0-2) unstable; urgency=medium
+
+  * Add patch from upstream to switch back to HDMI when port is back.
+    (Closes: #816963)
+  * Bump standards-version (no changes needed)
+  * Use canonical Vcs-* urls
+    - Use cgit url for browser
+    - Use https url for git
+  * Drop XS-Testsuite header.
+    - Newer dpkg-dev adds the field automatically
+    - Add versioned Build-Depends for such a version (1.17.14)
+  * Fix Build-Profile stage1 support
+    - Mark libbluetooth-dev dependency as <!stage1>
+    - Mark pulseaudio-module-bluetooth as <!stage1>
+    - Build-depend on new enough debhelper (9.20141010)
+    - Use correct flag --disable-bluez5
+    - Drop manual ignoring of bluetooth packages, debhelper knows to do so
+
+ -- Felipe Sateler <fsateler@debian.org>  Sat, 02 Apr 2016 20:42:36 -0300
+
+pulseaudio (8.0-1) unstable; urgency=medium
+
+  [ Luke Yelavich ]
+  * New upstream release
+  * Update shlibs file
+
+  [ Felipe Sateler ]
+  * Release to unstable
+
+ -- Felipe Sateler <fsateler@debian.org>  Wed, 27 Jan 2016 20:44:59 -0300
+
+pulseaudio (1:8.0-0ubuntu4) yakkety; urgency=medium
+
+  * debian/pulseaudio.maintscript: Bump versions for files that need to be
+    removed as they are obsolete (LP: #1573296)
+
+ -- Luke Yelavich <themuso@ubuntu.com>  Wed, 27 Apr 2016 14:41:42 +0200
 
 pulseaudio (1:8.0-0ubuntu3) xenial; urgency=medium
 
@@ -205,7 +858,7 @@ pulseaudio (7.0-1) unstable; urgency=medium
 
 pulseaudio (6.99.1-2) experimental; urgency=medium
 
-  * Fix test suite failure on alpha. Patch from Michael Cree. 
+  * Fix test suite failure on alpha. Patch from Michael Cree.
     Closes: #798248
 
  -- Felipe Sateler <fsateler@debian.org>  Thu, 10 Sep 2015 20:44:53 -0300
@@ -571,7 +1224,7 @@ pulseaudio (5.0-3) unstable; urgency=medium
     - bash completion is not meant to be executable
     - neither are the pulseaudio configuration files
   * Do not start pulseaudio in X session if it was already started.
-     Closes: #743813 
+     Closes: #743813
   * Remove pulseaudio init script, place it under examples.
      Closes: #696842
   * debian/patches/only-autostart-kde-version.patch:

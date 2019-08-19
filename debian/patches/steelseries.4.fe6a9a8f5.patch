@@ -1,0 +1,107 @@
+Description: Add support for steelseries Gaming headphones
+Origin: upstream, https://cgit.freedesktop.org/pulseaudio/pulseaudio/commit/?id=fe6a9a8f59932f29cc77eac2a7e2c6bd07c8c7d0
+Bug-Ubuntu: https://launchpad.net/bugs/1758736
+Author: Dave Chiluk <chiluk@ubuntu.com>
+
+-----------------------------------------------
+commit fe6a9a8f59932f29cc77eac2a7e2c6bd07c8c7d0
+Author: jorisc90 <joris@claassen.co>
+Date:   Thu Oct 25 23:59:13 2018 +0000
+
+    alsa-mixer: Update to support Arctis Pro Wireless headset
+    
+    The Arctis 7 configuration can be used as is - the ALSA PCM and mixer
+    interfaces are the same.
+
+Index: pulseaudio-12.2/src/modules/alsa/mixer/paths/steelseries-arctis-7-input.conf
+===================================================================
+--- pulseaudio-12.2.orig/src/modules/alsa/mixer/paths/steelseries-arctis-7-input.conf
++++ pulseaudio-12.2/src/modules/alsa/mixer/paths/steelseries-arctis-7-input.conf
+@@ -13,7 +13,8 @@
+ # You should have received a copy of the GNU Lesser General Public License
+ # along with PulseAudio; if not, see <http://www.gnu.org/licenses/>.
+ 
+-; Steelseries Arctis 7 USB headset microphone path.
++; Steelseries Arctis 7 USB headset microphone path. Works also with Arctis Pro
++; Wireless.
+ 
+ [General]
+ description-key = analog-input-microphone-headset
+Index: pulseaudio-12.2/src/modules/alsa/mixer/paths/steelseries-arctis-7-output-mono.conf
+===================================================================
+--- pulseaudio-12.2.orig/src/modules/alsa/mixer/paths/steelseries-arctis-7-output-mono.conf
++++ pulseaudio-12.2/src/modules/alsa/mixer/paths/steelseries-arctis-7-output-mono.conf
+@@ -13,11 +13,11 @@
+ # You should have received a copy of the GNU Lesser General Public License
+ # along with PulseAudio; if not, see <http://www.gnu.org/licenses/>.
+ 
+-; Steelseries Arctis 7 USB headset mono output path. The headset has two
+-; output devices. The first one is mono, meant for voice audio, and the
+-; second one is stereo, meant for everything else. The purpose of this
+-; unusual design is to provide separate volume controls for voice and
+-; other audio, which can be useful in gaming.
++; Steelseries Arctis 7 USB headset mono output path. Works also with Arctis Pro
++; Wireless. The headset has two output devices. The first one is mono, meant
++; for voice audio, and the second one is stereo, meant for everything else. The
++; purpose of this unusual design is to provide separate volume controls for
++; voice and other audio, which can be useful in gaming.
+ 
+ [General]
+ description-key = analog-output-headphones-mono
+Index: pulseaudio-12.2/src/modules/alsa/mixer/paths/steelseries-arctis-7-output-stereo.conf
+===================================================================
+--- pulseaudio-12.2.orig/src/modules/alsa/mixer/paths/steelseries-arctis-7-output-stereo.conf
++++ pulseaudio-12.2/src/modules/alsa/mixer/paths/steelseries-arctis-7-output-stereo.conf
+@@ -13,11 +13,11 @@
+ # You should have received a copy of the GNU Lesser General Public License
+ # along with PulseAudio; if not, see <http://www.gnu.org/licenses/>.
+ 
+-; Steelseries Arctis 7 USB headset stereo output path. The headset has two
+-; output devices. The first one is mono, meant for voice audio, and the
+-; second one is stereo, meant for everything else. The purpose of this
+-; unusual design is to provide separate volume controls for voice and
+-; other audio, which can be useful in gaming.
++; Steelseries Arctis 7 USB headset stereo output path. Works also with Arctis
++; Pro Wireless. The headset has two output devices. The first one is mono,
++; meant for voice audio, and the second one is stereo, meant for everything
++; else. The purpose of this unusual design is to provide separate volume
++; controls for voice and other audio, which can be useful in gaming.
+ ;
+ ; This path doesn't provide hardware volume control, because the stereo
+ ; output is controlled by the PCM element with index 1, and currently
+Index: pulseaudio-12.2/src/modules/alsa/mixer/profile-sets/90-pulseaudio.rules
+===================================================================
+--- pulseaudio-12.2.orig/src/modules/alsa/mixer/profile-sets/90-pulseaudio.rules
++++ pulseaudio-12.2/src/modules/alsa/mixer/profile-sets/90-pulseaudio.rules
+@@ -106,6 +106,10 @@ ATTRS{idVendor}=="045e", ATTRS{idProduct
+ ATTRS{idVendor}=="041e", ATTRS{idProduct}=="322c", ENV{PULSE_PROFILE_SET}="sb-omni-surround-5.1.conf"
+ ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="4014", ENV{PULSE_PROFILE_SET}="dell-dock-tb16-usb-audio.conf"
+ ATTRS{idVendor}=="1038", ATTRS{idProduct}=="1250", ENV{PULSE_PROFILE_SET}="steelseries-arctis-5-usb-audio.conf"
++
++# ID 1038:1294 is for Arctis Pro Wireless (which works with the Arctis 7
++# configuration).
+ ATTRS{idVendor}=="1038", ATTRS{idProduct}=="1260", ENV{PULSE_PROFILE_SET}="steelseries-arctis-7-usb-audio.conf"
++ATTRS{idVendor}=="1038", ATTRS{idProduct}=="1294", ENV{PULSE_PROFILE_SET}="steelseries-arctis-7-usb-audio.conf"
+ 
+ LABEL="pulseaudio_end"
+Index: pulseaudio-12.2/src/modules/alsa/mixer/profile-sets/steelseries-arctis-7-usb-audio.conf
+===================================================================
+--- pulseaudio-12.2.orig/src/modules/alsa/mixer/profile-sets/steelseries-arctis-7-usb-audio.conf
++++ pulseaudio-12.2/src/modules/alsa/mixer/profile-sets/steelseries-arctis-7-usb-audio.conf
+@@ -13,11 +13,11 @@
+ # You should have received a copy of the GNU Lesser General Public License
+ # along with PulseAudio; if not, see <http://www.gnu.org/licenses/>.
+ 
+-; Steelseries Arctis 7 USB headset. The headset has a microphone and two output
+-; devices. The first output device is mono, meant for voice audio, and the
+-; second one is stereo, meant for everything else. The purpose of this unusual
+-; design is to provide separate volume controls for voice and other audio,
+-; which can be useful in gaming.
++; Steelseries Arctis 7 USB and Arctis Pro Wireless USB headset. These headsets 
++; have a microphone and two output devices. The first output device is mono, 
++; meant for voice audio, and the second one is stereo, meant for everything 
++; else. The purpose of this unusual design is to provide separate volume 
++; controls for voice and other audio, which can be useful in gaming.
+ ;
+ ; See default.conf for an explanation on the directives used here.
+ 

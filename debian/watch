@@ -4,4 +4,4 @@
 
 # Compulsory line, this is a version 3 file
 version=3
-http://freedesktop.org/software/pulseaudio/releases/pulseaudio-(.*)\.tar\.xz
+https://freedesktop.org/software/pulseaudio/releases/pulseaudio-(.*)\.tar\.xz

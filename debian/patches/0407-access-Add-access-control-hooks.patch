@@ -16,7 +16,7 @@ Index: pulseaudio/src/Makefile.am
 ===================================================================
 --- pulseaudio.orig/src/Makefile.am
 +++ pulseaudio/src/Makefile.am
-@@ -641,6 +641,7 @@ commonlib_LTLIBRARIES = \
+@@ -664,6 +664,7 @@ commonlib_LTLIBRARIES = \
  # to the existing libpulse being linked to libpulsecommon). Duplicating the
  # code allows us to prevent this circular linking.
  libpulsecommon_@PA_MAJORMINOR@_la_SOURCES = \
@@ -158,7 +158,7 @@ Index: pulseaudio/src/pulsecore/core.h
 ===================================================================
 --- pulseaudio.orig/src/pulsecore/core.h
 +++ pulseaudio/src/pulsecore/core.h
-@@ -49,6 +49,7 @@ typedef enum pa_suspend_cause {
+@@ -53,6 +53,7 @@ typedef enum pa_suspend_cause {
  #include <pulsecore/source.h>
  #include <pulsecore/core-subscribe.h>
  #include <pulsecore/msgobject.h>
@@ -166,7 +166,7 @@ Index: pulseaudio/src/pulsecore/core.h
  
  typedef enum pa_server_type {
      PA_SERVER_TYPE_UNSET,
-@@ -206,6 +207,8 @@ struct pa_core {
+@@ -231,6 +232,8 @@ struct pa_core {
  
      /* hooks */
      pa_hook hooks[PA_CORE_HOOK_MAX];
