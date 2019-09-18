@@ -1,0 +1,40 @@
+Description: droid: add support for Android 7.1 in droid-discover
+ This patch makes module-droid-discover loads module for API level 24 if
+ Android version is 7.1. This is a bit misleading because the actual API
+ level for 7.1 is 25 but Ubuntu Touch uses number 24 instead.
+ .
+ Note that I didn't add dependencies on pulseaudio-module-droid-24 &
+ pulseaudio-module-droid-glue-24. If the package isn't installed, the
+ module will fail with "Unsupported Android version", which is same as
+ before.
+Author: Ratchanan Srirattanamet
+Forwarded: not-needed
+Last-Update: 2019-09-18
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/src/modules/droid/module-droid-discover.c
++++ b/src/modules/droid/module-droid-discover.c
+@@ -70,7 +70,10 @@
+ 
+     m->userdata = u = pa_xnew0(struct userdata, 1);
+ 
+-	if (!strncmp(version, "5.1", 3) && pa_module_exists(MODULE_DROID_CARD_PREFIX "22"))
++	// FIXME: Android 7.1's API level is actually 25.
++	if (!strncmp(version, "7.1", 3) && pa_module_exists(MODULE_DROID_CARD_PREFIX "24"))
++		module_name = MODULE_DROID_CARD_PREFIX "24";
++	else if (!strncmp(version, "5.1", 3) && pa_module_exists(MODULE_DROID_CARD_PREFIX "22"))
+ 		module_name = MODULE_DROID_CARD_PREFIX "22";
+ 	else if (!strncmp(version, "4.4", 3) && pa_module_exists(MODULE_DROID_CARD_PREFIX "19"))
+ 		module_name = MODULE_DROID_CARD_PREFIX "19";
+@@ -94,7 +97,10 @@
+     if (has_audioflingerglue()) {
+       pa_log("Device has AudioFlingerglue");
+ 
+-      if (!strncmp(version, "5.1", 3) && pa_module_exists(MODULE_DROID_GLUE_PREFIX "22"))
++      // FIXME: Android 7.1's API level is actually 25.
++      if (!strncmp(version, "7.1", 3) && pa_module_exists(MODULE_DROID_GLUE_PREFIX "24"))
++        af_module_name = MODULE_DROID_GLUE_PREFIX "24";
++      else if (!strncmp(version, "5.1", 3) && pa_module_exists(MODULE_DROID_GLUE_PREFIX "22"))
+         af_module_name = MODULE_DROID_GLUE_PREFIX "22";
+       else {
+         pa_log("AudioFlingerglue Unsupported Android version %s", version);

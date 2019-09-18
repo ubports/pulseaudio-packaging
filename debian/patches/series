@@ -48,3 +48,4 @@
 # Allow out of tree modules
 0902-install_pulsecore_headers.patch
 0903-add-audioflingerglue.patch
+0904-droid-discover-add-support-for-android-7.1.patch

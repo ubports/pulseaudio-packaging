@@ -1,3 +1,10 @@
+pulseaudio (1:8.0-1ubports5) xenial; urgency=medium
+
+  * Add 0904-droid-discover-add-support-for-android-7.1.patch
+    - droid: add support for Android 7.1 in droid-discover
+
+ -- Ratchanan Srirattanamet <peathot@hotmail.com>  Wed, 18 Sep 2019 23:01:05 +0700
+
 pulseaudio (1:8.0-1ubports4) xenial; urgency=medium
 
   * Add support to build out of tree modules
