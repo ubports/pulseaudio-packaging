@@ -59,6 +59,23 @@ pulseaudio (1:8.0-1ubports1) xenial; urgency=medium
 
  -- Marius Gripsgard <marius@ubports.com>  Thu, 28 Dec 2017 10:05:34 +0100
 
+pulseaudio (1:8.0-0ubuntu3.11) xenial; urgency=medium
+
+  * Backport the snap policy module to make access to audio recording
+    conditional on plugging the "pulseaudio" or "audio-record" interfaces
+    (LP: #1781428):
+    - 0450-modules-add-snappy-policy-module.patch: rewrite to query
+      snapd for the client's plugged interfaces.
+    - 0451-enable-snap-policy-module.patch: enable the module in the
+      default configuration.
+    - Build depend on libsnapd-glib-dev.
+  * Backport libjson-c dependency removal from Pulse Audio 10. This is
+    required by the snap policy module due to a symbol name clash with
+    libjson-glib.
+    - 0805-remove-libjson-c-dependency.patch: new file.
+
+ -- James Henstridge <james.henstridge@canonical.com>  Tue, 05 Nov 2019 17:16:22 +0800
+
 pulseaudio (1:8.0-0ubuntu3.10) xenial; urgency=medium
 
   * Revert Cherrypick fixes for checking profile availabilities
