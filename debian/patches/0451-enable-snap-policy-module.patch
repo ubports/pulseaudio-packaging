@@ -1,0 +1,30 @@
+From: James Henstridge <james.henstridge@canonical.com>
+Date: Tue, 7 Aug 2018 16:54:00 +0800
+Subject: daemon: enable module-snap-policy module
+
+Forwarded: not-needed
+
+This patch allows pulseaudio to limit audio recording to snaps with
+the audio-recording interface connected.  We will not pursue upstreaming
+this patch as the longer term solution will probably use PipeWire.
+---
+ src/daemon/default.pa.in | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/src/daemon/default.pa.in b/src/daemon/default.pa.in
+index b770a4d..236b049 100755
+--- a/src/daemon/default.pa.in
++++ b/src/daemon/default.pa.in
+@@ -166,6 +166,12 @@ load-module module-position-event-sounds
+ ### Cork music/video streams when a phone stream is active
+ #load-module module-role-cork
+ 
++### Block audio recording for snap confined packages unless they have
++### the "pulseaudio" or "audio-record" interfaces plugged.
++.ifexists module-snap-policy@PA_SOEXT@
++load-module module-snap-policy
++.endif
++
+ ### Modules to allow autoloading of filters (such as echo cancellation)
+ ### on demand. module-filter-heuristics tries to determine what filters
+ ### make sense, and module-filter-apply does the heavy-lifting of
