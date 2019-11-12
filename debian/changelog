@@ -1,3 +1,10 @@
+pulseaudio (1:8.0-1ubports6~exp1) xenial; urgency=medium
+
+  * Import changes from Ubuntu xenial upto 8.0-0ubuntu3.10.
+  * Update Jenkinsfile to archive ddeb.
+
+ -- Ratchanan Srirattanamet <ratchanan@ubports.com>  Tue, 12 Nov 2019 18:32:45 +0700
+
 pulseaudio (1:8.0-1ubports5) xenial; urgency=medium
 
   * Add 0904-droid-discover-add-support-for-android-7.1.patch
