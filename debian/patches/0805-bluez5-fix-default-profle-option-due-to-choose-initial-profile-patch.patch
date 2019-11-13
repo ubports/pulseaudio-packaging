@@ -1,0 +1,86 @@
+Description: bluez5: fix default profile option due to choose initial profile patch
+ Patch 0700-pulsecore-add-new-card-profile-hook.patch changes the way
+ a card's initial profile is chosen. This breaks the bluez5's default
+ profile patch as it uses the old method. This patch update how this
+ options work by refering to how ALSA module is updated in the patch
+ above.
+ .
+ This patch is potentially SRU-able in Ubuntu repository. However, as
+ this option seems to be used exclusively on Ubuntu Touch and Canoncal
+ doesn't care about Ubuntu Touch anymore, I think there's no benefit in
+ doing so.
+Author: Ratchanan Srirattanamet <ratchanan@ubports.com>
+Bug-UBports: https://github.com/ubports/ubuntu-touch/issues/528 
+Forwarded: no
+Last-Update: 2019-11-13
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/src/modules/bluetooth/module-bluez5-device.c
++++ b/src/modules/bluetooth/module-bluez5-device.c
+@@ -2175,16 +2175,6 @@
+     *p = PA_BLUETOOTH_PROFILE_OFF;
+     pa_hashmap_put(data.profiles, cp->name, cp);
+ 
+-    if ((default_profile = pa_modargs_get_value(u->modargs, "profile", NULL))) {
+-        if (pa_hashmap_get(data.profiles, default_profile)) {
+-            pa_card_new_data_set_profile(&data, default_profile);
+-            pa_log_debug("Using %s profile as default", default_profile);
+-            u->default_profile = pa_xstrdup(default_profile);
+-        }
+-        else
+-            pa_log_warn("Profile '%s' not valid or not supported by device.", default_profile);
+-    }
+-
+     u->card = pa_card_new(u->core, &data);
+     pa_card_new_data_done(&data);
+     if (!u->card) {
+@@ -2195,21 +2185,38 @@
+     u->card->userdata = u;
+     u->card->set_profile = set_profile_cb;
+     pa_card_choose_initial_profile(u->card);
+-    pa_card_put(u->card);
+ 
+-    p = PA_CARD_PROFILE_DATA(u->card->active_profile);
++    /* If the "profile" modarg is given, we have to override whatever the usual
++     * policy chose in pa_card_choose_initial_profile(). */
+ 
+-    if (*p != PA_BLUETOOTH_PROFILE_OFF && (!d->transports[*p] ||
+-                              d->transports[*p]->state == PA_BLUETOOTH_TRANSPORT_STATE_DISCONNECTED)) {
+-        pa_log_warn("Default profile not connected, selecting off profile");
+-        u->card->active_profile = pa_hashmap_get(u->card->profiles, "off");
+-        u->card->save_profile = false;
+-    }
+-    else {
+-        pa_xfree(u->default_profile);
+-        u->default_profile = NULL;
++    if ((default_profile = pa_modargs_get_value(u->modargs, "profile", NULL))) {
++        cp = pa_hashmap_get(u->card->profiles, default_profile);
++        if (!cp) {
++            pa_log("Profile '%s' not valid or not supported by device.", default_profile);
++            return -1;
++        }
++
++        pa_log_debug("Using %s profile as default", default_profile);
++
++        p = PA_CARD_PROFILE_DATA(u->card->active_profile);
++        if (*p != PA_BLUETOOTH_PROFILE_OFF && (!d->transports[*p] ||
++                d->transports[*p]->state == PA_BLUETOOTH_TRANSPORT_STATE_DISCONNECTED)) {
++            /* XXX: This implies that the "profile waiting" timeout has
++             * occured. Do we have any hope? */
++            pa_log_warn("Default profile not connected, selecting off profile");
++            pa_card_set_profile(
++                u->card,
++                pa_hashmap_get(u->card->profiles, "off"),
++                false);
++            u->default_profile = pa_xstrdup(default_profile);
++        }
++        else {
++            pa_card_set_profile(u->card, cp, false);
++        }
+     }
+ 
++    pa_card_put(u->card);
++
+     p = PA_CARD_PROFILE_DATA(u->card->active_profile);
+     u->profile = *p;
+ 
