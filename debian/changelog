@@ -1,3 +1,9 @@
+pulseaudio (1:8.0-1ubports6) xenial; urgency=medium
+
+  * Release to devel channel.
+
+ -- Ratchanan Srirattanamet <ratchanan@ubports.com>  Wed, 13 Nov 2019 19:43:19 +0700
+
 pulseaudio (1:8.0-1ubports6~exp2) xenial; urgency=medium
 
   * Fix BT headset breakage by fixing Bluez5 default profile option.
