@@ -1,3 +1,12 @@
+pulseaudio (1:8.0-1ubports6~exp2) xenial; urgency=medium
+
+  * Fix BT headset breakage by fixing Bluez5 default profile option.
+    Fixes ubports/ubuntu-touch#528 on newer Xenial's Pulseaudio.
+    - 0805-bluez5-fix-default-profle-option-due-to-choose-initial-profile
+      -patch.patch
+
+ -- Ratchanan Srirattanamet <ratchanan@ubports.com>  Wed, 13 Nov 2019 15:20:03 +0700
+
 pulseaudio (1:8.0-1ubports6~exp1) xenial; urgency=medium
 
   * Import changes from Ubuntu xenial upto 8.0-0ubuntu3.10.
