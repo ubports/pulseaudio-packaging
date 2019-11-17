@@ -1,0 +1,55 @@
+From: Tanu Kaskinen <tanuk@iki.fi>
+Date: Sun, 7 May 2017 12:12:39 +0300
+Subject: sink, source: update the default sink/source on port switches
+
+When sinks are compared during the default sink selection, the active
+port's availability is inspected. Therefore, the default sink should be
+updated when the active port changes, because the new port may have
+different availability status than the old port.
+
+For example, let's say that a laptop has an analog sink with a speaker
+and a headphone port, and headphones are initially plugged in, so both
+ports can be used[1]. The headphone port is initially the active port.
+There's also a null sink in the system. When the headphones are
+unplugged, the headphone port becomes unavailable, and the null sink
+becomes the new default sink. Then module-switch-on-port-available
+changes the analog sink port to speakers. Now the default sink should
+change back to the analog sink, but that doesn't happen without this
+patch.
+
+[1] Actually we currently mark speakers as unavailable when headphones
+are plugged in, but that's not strictly necessary. My example relies on
+both ports being available initially, so the bug can't be reproduced
+with the current mixer configuration.
+
+[ratchanan@ubports.com: update the patch to work with another distro patch.]
+
+Origin: backport, https://gitlab.freedesktop.org/pulseaudio/pulseaudio/commit/4c6843f02067bed2a299bed1651d00832e2afea0
+Bug-UBports: https://github.com/ubports/ubuntu-touch/issues/1045
+Last-Update: 2019-11-17
+---
+
+--- a/src/pulsecore/sink.c
++++ b/src/pulsecore/sink.c
+@@ -3378,6 +3378,9 @@
+ 
+     pa_sink_set_latency_offset(s, s->active_port->latency_offset);
+ 
++    /* The active port affects the default sink selection. */
++    pa_core_update_default_sink(s->core);
++
+     pa_hook_fire(&s->core->hooks[PA_CORE_HOOK_SINK_PORT_CHANGED], s);
+ 
+     return 0;
+--- a/src/pulsecore/source.c
++++ b/src/pulsecore/source.c
+@@ -2641,6 +2641,9 @@
+     s->active_port = port;
+     s->save_port = save;
+ 
++    /* The active port affects the default source selection. */
++    pa_core_update_default_source(s->core);
++
+     pa_hook_fire(&s->core->hooks[PA_CORE_HOOK_SOURCE_PORT_CHANGED], s);
+ 
+     return 0;

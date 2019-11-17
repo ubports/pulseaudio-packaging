@@ -1,0 +1,355 @@
+From: Tanu Kaskinen <tanuk@iki.fi>
+Date: Fri, 30 Jun 2017 00:09:34 +0300
+Subject: core: change configured_default_sink/source type to string
+
+This allows us to restore the default device properly when a
+hotpluggable device (e.g. a USB sound card) is set as the default, but
+unplugged temporarily. Previously we would forget that the unplugged
+device was ever set as the default, because we had to set
+configured_default_sink to NULL to avoid having a stale pa_sink pointer,
+and also because module-default-device-restore couldn't resolve the name
+of a currently-unplugged device to a pa_sink pointer.
+
+BugLink: https://bugs.freedesktop.org/show_bug.cgi?id=89934
+Origin: upstream, https://gitlab.freedesktop.org/pulseaudio/pulseaudio/commit/a448cc587c203bba42b1b9805317088e95775f71
+Bug-UBports: https://github.com/ubports/ubuntu-touch/issues/1045
+Last-Update: 2019-11-17
+---
+ src/modules/dbus/iface-core.c               |  4 +-
+ src/modules/module-default-device-restore.c | 30 +++++++-------
+ src/modules/module-switch-on-connect.c      |  8 ++--
+ src/pulsecore/cli-command.c                 |  4 +-
+ src/pulsecore/core.c                        | 46 +++++++++++++--------
+ src/pulsecore/core.h                        | 13 +++---
+ src/pulsecore/protocol-native.c             |  4 +-
+ src/pulsecore/sink.c                        |  5 +--
+ src/pulsecore/source.c                      |  5 +--
+ 9 files changed, 63 insertions(+), 56 deletions(-)
+
+--- a/src/modules/dbus/iface-core.c
++++ b/src/modules/dbus/iface-core.c
+@@ -721,7 +721,7 @@
+         return;
+     }
+ 
+-    pa_core_set_configured_default_sink(c->core, pa_dbusiface_device_get_sink(fallback_sink));
++    pa_core_set_configured_default_sink(c->core, pa_dbusiface_device_get_sink(fallback_sink)->name);
+ 
+     pa_dbus_send_empty_reply(conn, msg);
+ }
+@@ -809,7 +809,7 @@
+         return;
+     }
+ 
+-    pa_core_set_configured_default_source(c->core, pa_dbusiface_device_get_source(fallback_source));
++    pa_core_set_configured_default_source(c->core, pa_dbusiface_device_get_source(fallback_source)->name);
+ 
+     pa_dbus_send_empty_reply(conn, msg);
+ }
+--- a/src/modules/module-default-device-restore.c
++++ b/src/modules/module-default-device-restore.c
+@@ -60,7 +60,6 @@
+         pa_log_info("Manually configured default sink, not overwriting.");
+     else if ((f = pa_fopen_cloexec(u->sink_filename, "r"))) {
+         char ln[256] = "";
+-        pa_sink *s;
+ 
+         if (fgets(ln, sizeof(ln)-1, f))
+             pa_strip_nl(ln);
+@@ -68,11 +67,12 @@
+ 
+         if (!ln[0])
+             pa_log_info("No previous default sink setting, ignoring.");
+-        else if ((s = pa_namereg_get(u->core, ln, PA_NAMEREG_SINK))) {
+-            pa_core_set_configured_default_sink(u->core, s);
+-            pa_log_info("Restored default sink '%s'.", ln);
+-        } else
+-            pa_log_info("Saved default sink '%s' not existent, not restoring default sink setting.", ln);
++        else if (!pa_namereg_is_valid_name(ln))
++            pa_log_warn("Invalid sink name: %s", ln);
++        else {
++            pa_log_info("Restoring default sink '%s'.", ln);
++            pa_core_set_configured_default_sink(u->core, ln);
++        }
+ 
+     } else if (errno != ENOENT)
+         pa_log("Failed to load default sink: %s", pa_cstrerror(errno));
+@@ -81,7 +81,6 @@
+         pa_log_info("Manually configured default source, not overwriting.");
+     else if ((f = pa_fopen_cloexec(u->source_filename, "r"))) {
+         char ln[256] = "";
+-        pa_source *s;
+ 
+         if (fgets(ln, sizeof(ln)-1, f))
+             pa_strip_nl(ln);
+@@ -89,14 +88,15 @@
+ 
+         if (!ln[0])
+             pa_log_info("No previous default source setting, ignoring.");
+-        else if ((s = pa_namereg_get(u->core, ln, PA_NAMEREG_SOURCE))) {
+-            pa_core_set_configured_default_source(u->core, s);
+-            pa_log_info("Restored default source '%s'.", ln);
+-        } else
+-            pa_log_info("Saved default source '%s' not existent, not restoring default source setting.", ln);
++        else if (!pa_namereg_is_valid_name(ln))
++            pa_log_warn("Invalid source name: %s", ln);
++        else {
++            pa_log_info("Restoring default source '%s'.", ln);
++            pa_core_set_configured_default_source(u->core, ln);
++        }
+ 
+     } else if (errno != ENOENT)
+-            pa_log("Failed to load default sink: %s", pa_cstrerror(errno));
++        pa_log("Failed to load default source: %s", pa_cstrerror(errno));
+ }
+ 
+ static void save(struct userdata *u) {
+@@ -107,7 +107,7 @@
+ 
+     if (u->sink_filename) {
+         if ((f = pa_fopen_cloexec(u->sink_filename, "w"))) {
+-            fprintf(f, "%s\n", u->core->default_sink ? u->core->default_sink->name : "");
++            fprintf(f, "%s\n", u->core->configured_default_sink ? u->core->configured_default_sink : "");
+             fclose(f);
+         } else
+             pa_log("Failed to save default sink: %s", pa_cstrerror(errno));
+@@ -115,7 +115,7 @@
+ 
+     if (u->source_filename) {
+         if ((f = pa_fopen_cloexec(u->source_filename, "w"))) {
+-            fprintf(f, "%s\n", u->core->default_source ? u->core->default_source->name : "");
++            fprintf(f, "%s\n", u->core->configured_default_source ? u->core->configured_default_source : "");
+             fclose(f);
+         } else
+             pa_log("Failed to save default source: %s", pa_cstrerror(errno));
+--- a/src/modules/module-switch-on-connect.c
++++ b/src/modules/module-switch-on-connect.c
+@@ -86,7 +86,7 @@
+ 
+     /* No default sink, nothing to move away, just set the new default */
+     if (!c->default_sink) {
+-        pa_core_set_configured_default_sink(c, sink);
++        pa_core_set_configured_default_sink(c, sink->name);
+         return PA_HOOK_OK;
+     }
+ 
+@@ -100,7 +100,7 @@
+     old_default_sink = c->default_sink;
+ 
+     /* Actually do the switch to the new sink */
+-    pa_core_set_configured_default_sink(c, sink);
++    pa_core_set_configured_default_sink(c, sink->name);
+ 
+     /* Now move all old inputs over */
+     if (pa_idxset_size(old_default_sink->inputs) <= 0) {
+@@ -158,7 +158,7 @@
+ 
+     /* No default source, nothing to move away, just set the new default */
+     if (!c->default_source) {
+-        pa_core_set_configured_default_source(c, source);
++        pa_core_set_configured_default_source(c, source->name);
+         return PA_HOOK_OK;
+     }
+ 
+@@ -172,7 +172,7 @@
+     old_default_source = c->default_source;
+ 
+     /* Actually do the switch to the new source */
+-    pa_core_set_configured_default_source(c, source);
++    pa_core_set_configured_default_source(c, source->name);
+ 
+     /* Now move all old outputs over */
+     if (pa_idxset_size(old_default_source->outputs) <= 0) {
+--- a/src/pulsecore/cli-command.c
++++ b/src/pulsecore/cli-command.c
+@@ -1030,7 +1030,7 @@
+     }
+ 
+     if ((s = pa_namereg_get(c, n, PA_NAMEREG_SINK)))
+-        pa_core_set_configured_default_sink(c, s);
++        pa_core_set_configured_default_sink(c, s->name);
+     else
+         pa_strbuf_printf(buf, "Sink %s does not exist.\n", n);
+ 
+@@ -1052,7 +1052,7 @@
+     }
+ 
+     if ((s = pa_namereg_get(c, n, PA_NAMEREG_SOURCE)))
+-        pa_core_set_configured_default_source(c, s);
++        pa_core_set_configured_default_source(c, s->name);
+     else
+         pa_strbuf_printf(buf, "Source %s does not exist.\n", n);
+     return 0;
+--- a/src/pulsecore/core.c
++++ b/src/pulsecore/core.c
+@@ -217,6 +217,8 @@
+ 
+     pa_assert(!c->default_source);
+     pa_assert(!c->default_sink);
++    pa_xfree(c->configured_default_source);
++    pa_xfree(c->configured_default_sink);
+ 
+     pa_silence_cache_done(&c->silence_cache);
+     if (c->rw_mempool)
+@@ -231,38 +233,46 @@
+     pa_xfree(c);
+ }
+ 
+-void pa_core_set_configured_default_sink(pa_core *core, pa_sink *sink) {
+-    pa_sink *old_sink;
++void pa_core_set_configured_default_sink(pa_core *core, const char *sink) {
++    char *old_sink;
+ 
+     pa_assert(core);
+ 
+-    old_sink = core->configured_default_sink;
++    old_sink = pa_xstrdup(core->configured_default_sink);
+ 
+-    if (sink == old_sink)
+-        return;
++    if (pa_safe_streq(sink, old_sink))
++        goto finish;
+ 
+-    core->configured_default_sink = sink;
++    pa_xfree(core->configured_default_sink);
++    core->configured_default_sink = pa_xstrdup(sink);
+     pa_log_info("configured_default_sink: %s -> %s",
+-                old_sink ? old_sink->name : "(unset)", sink ? sink->name : "(unset)");
++                old_sink ? old_sink : "(unset)", sink ? sink : "(unset)");
+ 
+     pa_core_update_default_sink(core);
++
++finish:
++    pa_xfree(old_sink);
+ }
+ 
+-void pa_core_set_configured_default_source(pa_core *core, pa_source *source) {
+-    pa_source *old_source;
++void pa_core_set_configured_default_source(pa_core *core, const char *source) {
++    char *old_source;
+ 
+     pa_assert(core);
+ 
+-    old_source = core->configured_default_source;
++    old_source = pa_xstrdup(core->configured_default_source);
+ 
+-    if (source == old_source)
+-        return;
++    if (pa_safe_streq(source, old_source))
++        goto finish;
+ 
+-    core->configured_default_source = source;
++    pa_xfree(core->configured_default_source);
++    core->configured_default_source = pa_xstrdup(source);
+     pa_log_info("configured_default_source: %s -> %s",
+-                old_source ? old_source->name : "(unset)", source ? source->name : "(unset)");
++                old_source ? old_source : "(unset)", source ? source : "(unset)");
+ 
+     pa_core_update_default_source(core);
++
++finish:
++    pa_xfree(old_source);
+ }
+ 
+ /* a  < b  ->  return -1
+@@ -282,9 +292,9 @@
+         return 1;
+ 
+     /* The configured default sink is preferred over any other sink. */
+-    if (b == core->configured_default_sink)
++    if (pa_safe_streq(b->name, core->configured_default_sink))
+         return -1;
+-    if (a == core->configured_default_sink)
++    if (pa_safe_streq(a->name, core->configured_default_sink))
+         return 1;
+ 
+     if (a->priority < b->priority)
+@@ -356,9 +366,9 @@
+         return 1;
+ 
+     /* The configured default source is preferred over any other source. */
+-    if (b == core->configured_default_source)
++    if (pa_safe_streq(b->name, core->configured_default_source))
+         return -1;
+-    if (a == core->configured_default_source)
++    if (pa_safe_streq(a->name, core->configured_default_source))
+         return 1;
+ 
+     /* Monitor sources lose to non-monitor sources. */
+--- a/src/pulsecore/core.h
++++ b/src/pulsecore/core.h
+@@ -162,9 +162,12 @@
+     pa_hashmap *namereg, *shared;
+ 
+     /* The default sink/source as configured by the user. If the user hasn't
+-     * explicitly configured anything, these are set to NULL. */
+-    pa_sink *configured_default_sink;
+-    pa_source *configured_default_source;
++     * explicitly configured anything, these are set to NULL. These are strings
++     * instead of sink/source pointers, because that allows us to reference
++     * devices that don't currently exist. That's useful for remembering that
++     * a hotplugged USB sink was previously set as the default sink. */
++    char *configured_default_sink;
++    char *configured_default_source;
+ 
+     /* The effective default sink/source. If no sink or source is explicitly
+      * configured as the default, we pick the device that ranks highest
+@@ -232,8 +235,8 @@
+ 
+ pa_core* pa_core_new(pa_mainloop_api *m, bool shared, size_t shm_size);
+ 
+-void pa_core_set_configured_default_sink(pa_core *core, pa_sink *sink);
+-void pa_core_set_configured_default_source(pa_core *core, pa_source *source);
++void pa_core_set_configured_default_sink(pa_core *core, const char *sink);
++void pa_core_set_configured_default_source(pa_core *core, const char *source);
+ 
+ /* These should be called whenever something changes that may affect the
+  * default sink or source choice.
+--- a/src/pulsecore/protocol-native.c
++++ b/src/pulsecore/protocol-native.c
+@@ -4511,7 +4511,7 @@
+         CHECK_VALIDITY(c->pstream, source, tag, PA_ERR_NOENTITY);
+         CHECK_ACCESS(c, command, tag, source->index, s);
+ 
+-        pa_core_set_configured_default_source(c->protocol->core, source);
++        pa_core_set_configured_default_source(c->protocol->core, source->name);
+     } else {
+         pa_sink *sink;
+         pa_assert(command == PA_COMMAND_SET_DEFAULT_SINK);
+@@ -4520,7 +4520,7 @@
+         CHECK_VALIDITY(c->pstream, sink, tag, PA_ERR_NOENTITY);
+         CHECK_ACCESS(c, command, tag, sink->index, s);
+ 
+-        pa_core_set_configured_default_sink(c->protocol->core, sink);
++        pa_core_set_configured_default_sink(c->protocol->core, sink->name);
+     }
+ 
+     pa_pstream_send_simple_ack(c->pstream, tag);
+--- a/src/pulsecore/sink.c
++++ b/src/pulsecore/sink.c
+@@ -693,10 +693,7 @@
+         pa_namereg_unregister(s->core, s->name);
+     pa_idxset_remove_by_data(s->core->sinks, s, NULL);
+ 
+-    if (s == s->core->configured_default_sink)
+-        pa_core_set_configured_default_sink(s->core, NULL);
+-    else
+-        pa_core_update_default_sink(s->core);
++    pa_core_update_default_sink(s->core);
+ 
+     if (s->card)
+         pa_idxset_remove_by_data(s->card->sinks, s, NULL);
+--- a/src/pulsecore/source.c
++++ b/src/pulsecore/source.c
+@@ -631,10 +631,7 @@
+         pa_namereg_unregister(s->core, s->name);
+     pa_idxset_remove_by_data(s->core->sources, s, NULL);
+ 
+-    if (s == s->core->configured_default_source)
+-        pa_core_set_configured_default_source(s->core, NULL);
+-    else
+-        pa_core_update_default_source(s->core);
++    pa_core_update_default_source(s->core);
+ 
+     if (s->card)
+         pa_idxset_remove_by_data(s->card->sources, s, NULL);

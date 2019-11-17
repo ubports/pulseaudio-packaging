@@ -1,0 +1,73 @@
+From: Tanu Kaskinen <tanuk@iki.fi>
+Date: Thu, 16 Feb 2017 12:09:39 +0200
+Subject: core, device-port: check availability when choosing the default
+ device
+
+It doesn't make sense to use a sink or source whose active port is
+unavailable, so let's take this into account when choosing the default
+sink and source.
+
+Origin: upstream, https://gitlab.freedesktop.org/pulseaudio/pulseaudio/commit/1c477fcb679ac50259ef057ebe23c80c529aa612
+Bug-UBports: https://github.com/ubports/ubuntu-touch/issues/1045
+Last-Update: 2019-11-17
+---
+ src/pulsecore/core.c        | 16 ++++++++++++++++
+ src/pulsecore/device-port.c |  8 ++++++++
+ 2 files changed, 24 insertions(+)
+
+diff --git a/src/pulsecore/core.c b/src/pulsecore/core.c
+index 16fd040a4..52e51db1a 100644
+--- a/src/pulsecore/core.c
++++ b/src/pulsecore/core.c
+@@ -266,6 +266,14 @@ static int compare_sinks(pa_sink *a, pa_sink *b) {
+ 
+     core = a->core;
+ 
++    /* Available sinks always beat unavailable sinks. */
++    if (a->active_port && a->active_port->available == PA_AVAILABLE_NO
++            && (!b->active_port || b->active_port->available != PA_AVAILABLE_NO))
++        return -1;
++    if (b->active_port && b->active_port->available == PA_AVAILABLE_NO
++            && (!a->active_port || a->active_port->available != PA_AVAILABLE_NO))
++        return 1;
++
+     /* The configured default sink is preferred over any other sink. */
+     if (b == core->configured_default_sink)
+         return -1;
+@@ -332,6 +340,14 @@ static int compare_sources(pa_source *a, pa_source *b) {
+ 
+     core = a->core;
+ 
++    /* Available sources always beat unavailable sources. */
++    if (a->active_port && a->active_port->available == PA_AVAILABLE_NO
++            && (!b->active_port || b->active_port->available != PA_AVAILABLE_NO))
++        return -1;
++    if (b->active_port && b->active_port->available == PA_AVAILABLE_NO
++            && (!a->active_port || a->active_port->available != PA_AVAILABLE_NO))
++        return 1;
++
+     /* The configured default source is preferred over any other source. */
+     if (b == core->configured_default_source)
+         return -1;
+diff --git a/src/pulsecore/device-port.c b/src/pulsecore/device-port.c
+index 7c9ddf325..76a7e80a1 100644
+--- a/src/pulsecore/device-port.c
++++ b/src/pulsecore/device-port.c
+@@ -93,6 +93,14 @@ void pa_device_port_set_available(pa_device_port *p, pa_available_t status) {
+      * be created before port objects, and then p->card could be non-NULL for
+      * the whole lifecycle of pa_device_port. */
+     if (p->card) {
++        /* A sink or source whose active port is unavailable can't be the
++         * default sink/source, so port availability changes may affect the
++         * default sink/source choice. */
++        if (p->direction == PA_DIRECTION_OUTPUT)
++            pa_core_update_default_sink(p->core);
++        else
++            pa_core_update_default_source(p->core);
++
+         pa_subscription_post(p->core, PA_SUBSCRIPTION_EVENT_CARD|PA_SUBSCRIPTION_EVENT_CHANGE, p->card->index);
+         pa_hook_fire(&p->core->hooks[PA_CORE_HOOK_PORT_AVAILABLE_CHANGED], p);
+     }
+-- 
+2.17.1
+
