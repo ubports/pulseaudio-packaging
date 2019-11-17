@@ -1,0 +1,99 @@
+From: Georg Chini <georg@chini.tk>
+Date: Thu, 18 May 2017 07:47:27 +0200
+Subject: sink/source: Don't update default sink/source before calling
+ PA_CORE_HOOK_{SINK,SOURCE}_PUT
+
+In sink_put() and source_put(), pa_core_update_default_{sink,source}() was called
+before the PA_CORE_HOOK_{SINK,SOURCE}_PUT hook. Therefore module-switch-on-connect
+could not correctly determine the old default sink/source if no user default was
+set and a sink/source with higher priority than any other sink/source turned up.
+
+This patch corrects the problem by swapping the order of the hook call and the
+pa_core_update_default_sink() call.
+
+Additionally it corrects a problem in module-switch-on-connect. If, after the
+change above, the new sink/source was the first sink/source to appear, pulseaudio
+would crash because module-switch-on-connect assumed that the default sink/source
+was not NULL. The patch checks if the default sink/source is NULL and only sets
+the new default sink/source in that case.
+
+Origin: upstream, https://gitlab.freedesktop.org/pulseaudio/pulseaudio/commit/e08124f6ba09d553e3a9a3b8fee16f3a83571122
+Bug-UBports: https://github.com/ubports/ubuntu-touch/issues/1045
+Last-Update: 2019-11-17
+---
+ src/modules/module-switch-on-connect.c | 12 ++++++++++++
+ src/pulsecore/sink.c                   |  6 ++++--
+ src/pulsecore/source.c                 |  6 ++++--
+ 3 files changed, 20 insertions(+), 4 deletions(-)
+
+diff --git a/src/modules/module-switch-on-connect.c b/src/modules/module-switch-on-connect.c
+index 776c923ee..e2da7222f 100644
+--- a/src/modules/module-switch-on-connect.c
++++ b/src/modules/module-switch-on-connect.c
+@@ -75,6 +75,12 @@ static pa_hook_result_t sink_put_hook_callback(pa_core *c, pa_sink *sink, void*
+             return PA_HOOK_OK;
+     }
+ 
++    /* No default sink, nothing to move away, just set the new default */
++    if (!c->default_sink) {
++        pa_core_set_configured_default_sink(c, sink);
++        return PA_HOOK_OK;
++    }
++
+     if (c->default_sink == sink)
+         return PA_HOOK_OK;
+ 
+@@ -135,6 +141,12 @@ static pa_hook_result_t source_put_hook_callback(pa_core *c, pa_source *source,
+             return PA_HOOK_OK;
+     }
+ 
++    /* No default source, nothing to move away, just set the new default */
++    if (!c->default_source) {
++        pa_core_set_configured_default_source(c, source);
++        return PA_HOOK_OK;
++    }
++
+     if (c->default_source == source)
+         return PA_HOOK_OK;
+ 
+diff --git a/src/pulsecore/sink.c b/src/pulsecore/sink.c
+index 43dad516a..39463bd26 100644
+--- a/src/pulsecore/sink.c
++++ b/src/pulsecore/sink.c
+@@ -660,10 +660,12 @@ void pa_sink_put(pa_sink* s) {
+ 
+     pa_source_put(s->monitor_source);
+ 
+-    pa_core_update_default_sink(s->core);
+-
+     pa_subscription_post(s->core, PA_SUBSCRIPTION_EVENT_SINK | PA_SUBSCRIPTION_EVENT_NEW, s->index);
+     pa_hook_fire(&s->core->hooks[PA_CORE_HOOK_SINK_PUT], s);
++
++    /* This function must be called after the PA_CORE_HOOK_SINK_PUT hook,
++     * because module-switch-on-connect needs to know the old default sink */
++    pa_core_update_default_sink(s->core);
+ }
+ 
+ /* Called from main context */
+diff --git a/src/pulsecore/source.c b/src/pulsecore/source.c
+index cfbc62688..d56a13ddd 100644
+--- a/src/pulsecore/source.c
++++ b/src/pulsecore/source.c
+@@ -603,10 +603,12 @@ void pa_source_put(pa_source *s) {
+     else
+         pa_assert_se(source_set_state(s, PA_SOURCE_IDLE) == 0);
+ 
+-    pa_core_update_default_source(s->core);
+-
+     pa_subscription_post(s->core, PA_SUBSCRIPTION_EVENT_SOURCE | PA_SUBSCRIPTION_EVENT_NEW, s->index);
+     pa_hook_fire(&s->core->hooks[PA_CORE_HOOK_SOURCE_PUT], s);
++
++    /* This function must be called after the PA_CORE_HOOK_SOURCE_PUT hook,
++     * because module-switch-on-connect needs to know the old default source */
++    pa_core_update_default_source(s->core);
+ }
+ 
+ /* Called from main context */
+-- 
+2.17.1
+

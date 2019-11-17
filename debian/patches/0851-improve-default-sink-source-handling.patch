@@ -1,0 +1,1221 @@
+From: Tanu Kaskinen <tanuk@iki.fi>
+Date: Thu, 16 Feb 2017 12:09:38 +0200
+Subject: improve default sink/source handling
+
+Currently the default sink policy is simple: either the user has
+configured it explicitly, in which case we always use that as the
+default, or we pick the sink with the highest priority. The sink
+priorities are currently static, so there's no need to worry about
+updating the default sink when sink priorities change.
+
+I intend to make things a bit more complex: if the active port of a sink
+is unavailable, the sink should not be the default sink, and I also want
+to make sink priorities dependent on the active port, so changing the
+port should cause re-evaluation of which sink to choose as the default.
+Currently the default sink choice is done only when someone calls
+pa_namereg_get_default_sink(), and change notifications are only sent
+when a sink is created or destroyed. That makes it hard to add new rules
+to the default sink selection policy.
+
+This patch moves the default sink selection to
+pa_core_update_default_sink(), which is called whenever something
+happens that can affect the default sink choice. That function needs to
+know the previous choice in order to send change notifications as
+appropriate, but previously pa_core.default_sink was only set when the
+user had configured it explicitly. Now pa_core.default_sink is always
+set (unless there are no sinks at all), so pa_core_update_default_sink()
+can use that to get the previous choice. The user configuration is saved
+in a new variable, pa_core.configured_default_sink.
+
+pa_namereg_get_default_sink() is now unnecessary, because
+pa_core.default_sink can be used directly to get the
+currently-considered-best sink. pa_namereg_set_default_sink() is
+replaced by pa_core_set_configured_default_sink().
+
+I haven't confirmed it, but I expect that this patch will fix problems
+in the D-Bus protocol related to default sink handling. The D-Bus
+protocol used to get confused when the current default sink gets
+removed. It would incorrectly think that if there's no explicitly
+configured default sink, then there's no default sink at all. Even
+worse, when the D-Bus thinks that there's no default sink, it concludes
+that there are no sinks at all, which made it impossible to configure
+the default sink via the D-Bus interface. Now that pa_core.default_sink
+is always set, except when there really aren't any sinks, the D-Bus
+protocol should behave correctly.
+
+[ratchanan@ubports.com: update the patch to work with another distro patch.]
+
+BugLink: https://bugs.freedesktop.org/show_bug.cgi?id=99425
+Origin: backport, https://gitlab.freedesktop.org/pulseaudio/pulseaudio/commit/6b348961304903483aa78d4ddc1fd036ef75a7cb
+Bug-UBports: https://github.com/ubports/ubuntu-touch/issues/1045
+Last-Update: 2019-11-17
+---
+
+--- a/src/modules/dbus/iface-core.c
++++ b/src/modules/dbus/iface-core.c
+@@ -721,7 +721,7 @@
+         return;
+     }
+ 
+-    pa_namereg_set_default_sink(c->core, pa_dbusiface_device_get_sink(fallback_sink));
++    pa_core_set_configured_default_sink(c->core, pa_dbusiface_device_get_sink(fallback_sink));
+ 
+     pa_dbus_send_empty_reply(conn, msg);
+ }
+@@ -809,7 +809,7 @@
+         return;
+     }
+ 
+-    pa_namereg_set_default_source(c->core, pa_dbusiface_device_get_source(fallback_source));
++    pa_core_set_configured_default_source(c->core, pa_dbusiface_device_get_source(fallback_source));
+ 
+     pa_dbus_send_empty_reply(conn, msg);
+ }
+@@ -1687,6 +1687,28 @@
+     return PA_HOOK_OK;
+ }
+ 
++static pa_dbusiface_device *create_dbus_object_for_sink(pa_dbusiface_core *c, pa_sink *s) {
++    pa_dbusiface_device *d;
++    const char *object_path;
++    DBusMessage *signal_msg;
++
++    d = pa_dbusiface_device_new_sink(c, s);
++    object_path = pa_dbusiface_device_get_path(d);
++
++    pa_assert_se(pa_hashmap_put(c->sinks_by_index, PA_UINT32_TO_PTR(s->index), d) >= 0);
++    pa_assert_se(pa_hashmap_put(c->sinks_by_path, (char *) object_path, d) >= 0);
++
++    pa_assert_se((signal_msg = dbus_message_new_signal(PA_DBUS_CORE_OBJECT_PATH,
++                                                       PA_DBUS_CORE_INTERFACE,
++                                                       signals[SIGNAL_NEW_SINK].name)));
++    pa_assert_se(dbus_message_append_args(signal_msg, DBUS_TYPE_OBJECT_PATH, &object_path, DBUS_TYPE_INVALID));
++
++    pa_dbus_protocol_send_signal(c->dbus_protocol, signal_msg);
++    dbus_message_unref(signal_msg);
++
++    return d;
++}
++
+ static pa_hook_result_t default_sink_changed_cb(void *hook_data, void *call_data, void *slot_data) {
+     pa_dbusiface_core *c = slot_data;
+     pa_sink *new_fallback_sink = call_data;
+@@ -1702,7 +1724,15 @@
+         c->fallback_sink = new_fallback_sink ? pa_sink_ref(new_fallback_sink) : NULL;
+ 
+         if (c->fallback_sink) {
+-            pa_assert_se((device_iface = pa_hashmap_get(c->sinks_by_index, PA_UINT32_TO_PTR(c->fallback_sink->index))));
++            device_iface = pa_hashmap_get(c->sinks_by_index, PA_UINT32_TO_PTR(c->fallback_sink->index));
++
++            /* It's possible that we haven't created a dbus object for the
++             * source yet, because if a new source immediately becomes the
++             * default source, the default source change hook is fired before
++             * the put hook. */
++            if (!device_iface)
++                device_iface = create_dbus_object_for_sink(c, c->fallback_sink);
++
+             object_path = pa_dbusiface_device_get_path(device_iface);
+ 
+             pa_assert_se((signal_msg = dbus_message_new_signal(PA_DBUS_CORE_OBJECT_PATH,
+@@ -1725,6 +1755,28 @@
+     return PA_HOOK_OK;
+ }
+ 
++static pa_dbusiface_device *create_dbus_object_for_source(pa_dbusiface_core *c, pa_source *s) {
++    pa_dbusiface_device *d;
++    const char *object_path;
++    DBusMessage *signal_msg;
++
++    d = pa_dbusiface_device_new_source(c, s);
++    object_path = pa_dbusiface_device_get_path(d);
++
++    pa_assert_se(pa_hashmap_put(c->sources_by_index, PA_UINT32_TO_PTR(s->index), d) >= 0);
++    pa_assert_se(pa_hashmap_put(c->sources_by_path, (char *) object_path, d) >= 0);
++
++    pa_assert_se((signal_msg = dbus_message_new_signal(PA_DBUS_CORE_OBJECT_PATH,
++                                                       PA_DBUS_CORE_INTERFACE,
++                                                       signals[SIGNAL_NEW_SOURCE].name)));
++    pa_assert_se(dbus_message_append_args(signal_msg, DBUS_TYPE_OBJECT_PATH, &object_path, DBUS_TYPE_INVALID));
++
++    pa_dbus_protocol_send_signal(c->dbus_protocol, signal_msg);
++    dbus_message_unref(signal_msg);
++
++    return d;
++}
++
+ static pa_hook_result_t default_source_changed_cb(void *hook_data, void *call_data, void *slot_data) {
+     pa_dbusiface_core *c = slot_data;
+     pa_source *new_fallback_source = call_data;
+@@ -1740,7 +1792,15 @@
+         c->fallback_source = new_fallback_source ? pa_source_ref(new_fallback_source) : NULL;
+ 
+         if (c->fallback_source) {
+-            pa_assert_se((device_iface = pa_hashmap_get(c->sources_by_index, PA_UINT32_TO_PTR(c->fallback_source->index))));
++            device_iface = pa_hashmap_get(c->sources_by_index, PA_UINT32_TO_PTR(c->fallback_source->index));
++
++            /* It's possible that we haven't created a dbus object for the
++             * source yet, because if a new source immediately becomes the
++             * default source, the default source change hook is fired before
++             * the put hook. */
++            if (!device_iface)
++                device_iface = create_dbus_object_for_source(c, c->fallback_source);
++
+             object_path = pa_dbusiface_device_get_path(device_iface);
+ 
+             pa_assert_se((signal_msg = dbus_message_new_signal(PA_DBUS_CORE_OBJECT_PATH,
+@@ -1978,26 +2038,17 @@
+ static pa_hook_result_t sink_put_cb(void *hook_data, void *call_data, void *slot_data) {
+     pa_dbusiface_core *c = slot_data;
+     pa_sink *s = call_data;
+-    pa_dbusiface_device *d = NULL;
+-    const char *object_path = NULL;
+-    DBusMessage *signal_msg = NULL;
+ 
+     pa_assert(c);
+     pa_assert(s);
+ 
+-    d = pa_dbusiface_device_new_sink(c, s);
+-    object_path = pa_dbusiface_device_get_path(d);
++    /* We may have alredy encountered this sink, because if the new sink was
++     * chosen as the default sink, the default sink change hook was fired
++     * first, and we saw the sink in default_sink_changed_cb(). */
++    if (pa_hashmap_get(c->sinks_by_index, PA_UINT32_TO_PTR(s->index)))
++        return PA_HOOK_OK;
+ 
+-    pa_assert_se(pa_hashmap_put(c->sinks_by_index, PA_UINT32_TO_PTR(s->index), d) >= 0);
+-    pa_assert_se(pa_hashmap_put(c->sinks_by_path, (char *) object_path, d) >= 0);
+-
+-    pa_assert_se(signal_msg = dbus_message_new_signal(PA_DBUS_CORE_OBJECT_PATH,
+-                                                      PA_DBUS_CORE_INTERFACE,
+-                                                      signals[SIGNAL_NEW_SINK].name));
+-    pa_assert_se(dbus_message_append_args(signal_msg, DBUS_TYPE_OBJECT_PATH, &object_path, DBUS_TYPE_INVALID));
+-
+-    pa_dbus_protocol_send_signal(c->dbus_protocol, signal_msg);
+-    dbus_message_unref(signal_msg);
++    create_dbus_object_for_sink(c, s);
+ 
+     return PA_HOOK_OK;
+ }
+@@ -2032,26 +2083,17 @@
+ static pa_hook_result_t source_put_cb(void *hook_data, void *call_data, void *slot_data) {
+     pa_dbusiface_core *c = slot_data;
+     pa_source *s = call_data;
+-    pa_dbusiface_device *d = NULL;
+-    const char *object_path = NULL;
+-    DBusMessage *signal_msg = NULL;
+ 
+     pa_assert(c);
+     pa_assert(s);
+ 
+-    d = pa_dbusiface_device_new_source(c, s);
+-    object_path = pa_dbusiface_device_get_path(d);
++    /* We may have alredy encountered this source, because if the new source
++     * was chosen as the default source, the default source change hook was
++     * fired first, and we saw the source in default_source_changed_cb(). */
++    if (pa_hashmap_get(c->sources_by_index, PA_UINT32_TO_PTR(s->index)))
++        return PA_HOOK_OK;
+ 
+-    pa_assert_se(pa_hashmap_put(c->sources_by_index, PA_UINT32_TO_PTR(s->index), d) >= 0);
+-    pa_assert_se(pa_hashmap_put(c->sources_by_path, (char *) object_path, d) >= 0);
+-
+-    pa_assert_se((signal_msg = dbus_message_new_signal(PA_DBUS_CORE_OBJECT_PATH,
+-                                                       PA_DBUS_CORE_INTERFACE,
+-                                                       signals[SIGNAL_NEW_SOURCE].name)));
+-    pa_assert_se(dbus_message_append_args(signal_msg, DBUS_TYPE_OBJECT_PATH, &object_path, DBUS_TYPE_INVALID));
+-
+-    pa_dbus_protocol_send_signal(c->dbus_protocol, signal_msg);
+-    dbus_message_unref(signal_msg);
++    create_dbus_object_for_source(c, s);
+ 
+     return PA_HOOK_OK;
+ }
+@@ -2153,8 +2195,8 @@
+     c->samples = pa_hashmap_new_full(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func, NULL, (pa_free_cb_t) pa_dbusiface_sample_free);
+     c->modules = pa_hashmap_new_full(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func, NULL, (pa_free_cb_t) pa_dbusiface_module_free);
+     c->clients = pa_hashmap_new_full(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func, NULL, (pa_free_cb_t) pa_dbusiface_client_free);
+-    c->fallback_sink = pa_namereg_get_default_sink(core);
+-    c->fallback_source = pa_namereg_get_default_source(core);
++    c->fallback_sink = core->default_sink;
++    c->fallback_source = core->default_source;
+     c->default_sink_changed_slot = pa_hook_connect(&core->hooks[PA_CORE_HOOK_DEFAULT_SINK_CHANGED],
+                                                    PA_HOOK_NORMAL, default_sink_changed_cb, c);
+     c->default_source_changed_slot = pa_hook_connect(&core->hooks[PA_CORE_HOOK_DEFAULT_SOURCE_CHANGED],
+--- a/src/modules/dbus/iface-sample.c
++++ b/src/modules/dbus/iface-sample.c
+@@ -352,7 +352,6 @@
+     DBusMessageIter msg_iter;
+     dbus_uint32_t volume = 0;
+     pa_proplist *property_list = NULL;
+-    pa_sink *sink = NULL;
+ 
+     pa_assert(conn);
+     pa_assert(msg);
+@@ -370,13 +369,18 @@
+         goto finish;
+     }
+ 
+-    if (!(sink = pa_namereg_get_default_sink(s->sample->core))) {
++    if (!s->sample->core->default_sink) {
+         pa_dbus_send_error(conn, msg, DBUS_ERROR_FAILED,
+                            "Can't play sample %s, because there are no sinks available.", s->sample->name);
+         goto finish;
+     }
+ 
+-    if (pa_scache_play_item(s->sample->core, s->sample->name, sink, volume, property_list, NULL) < 0) {
++    if (pa_scache_play_item(s->sample->core,
++                            s->sample->name,
++                            s->sample->core->default_sink,
++                            volume,
++                            property_list,
++                            NULL) < 0) {
+         pa_dbus_send_error(conn, msg, DBUS_ERROR_FAILED, "Playing sample %s failed.", s->sample->name);
+         goto finish;
+     }
+--- a/src/modules/module-default-device-restore.c
++++ b/src/modules/module-default-device-restore.c
+@@ -56,7 +56,7 @@
+ 
+     /* We never overwrite manually configured settings */
+ 
+-    if (u->core->default_sink)
++    if (u->core->configured_default_sink)
+         pa_log_info("Manually configured default sink, not overwriting.");
+     else if ((f = pa_fopen_cloexec(u->sink_filename, "r"))) {
+         char ln[256] = "";
+@@ -69,7 +69,7 @@
+         if (!ln[0])
+             pa_log_info("No previous default sink setting, ignoring.");
+         else if ((s = pa_namereg_get(u->core, ln, PA_NAMEREG_SINK))) {
+-            pa_namereg_set_default_sink(u->core, s);
++            pa_core_set_configured_default_sink(u->core, s);
+             pa_log_info("Restored default sink '%s'.", ln);
+         } else
+             pa_log_info("Saved default sink '%s' not existent, not restoring default sink setting.", ln);
+@@ -77,7 +77,7 @@
+     } else if (errno != ENOENT)
+         pa_log("Failed to load default sink: %s", pa_cstrerror(errno));
+ 
+-    if (u->core->default_source)
++    if (u->core->configured_default_source)
+         pa_log_info("Manually configured default source, not overwriting.");
+     else if ((f = pa_fopen_cloexec(u->source_filename, "r"))) {
+         char ln[256] = "";
+@@ -90,7 +90,7 @@
+         if (!ln[0])
+             pa_log_info("No previous default source setting, ignoring.");
+         else if ((s = pa_namereg_get(u->core, ln, PA_NAMEREG_SOURCE))) {
+-            pa_namereg_set_default_source(u->core, s);
++            pa_core_set_configured_default_source(u->core, s);
+             pa_log_info("Restored default source '%s'.", ln);
+         } else
+             pa_log_info("Saved default source '%s' not existent, not restoring default source setting.", ln);
+@@ -107,8 +107,7 @@
+ 
+     if (u->sink_filename) {
+         if ((f = pa_fopen_cloexec(u->sink_filename, "w"))) {
+-            pa_sink *s = pa_namereg_get_default_sink(u->core);
+-            fprintf(f, "%s\n", s ? s->name : "");
++            fprintf(f, "%s\n", u->core->default_sink ? u->core->default_sink->name : "");
+             fclose(f);
+         } else
+             pa_log("Failed to save default sink: %s", pa_cstrerror(errno));
+@@ -116,8 +115,7 @@
+ 
+     if (u->source_filename) {
+         if ((f = pa_fopen_cloexec(u->source_filename, "w"))) {
+-            pa_source *s = pa_namereg_get_default_source(u->core);
+-            fprintf(f, "%s\n", s ? s->name : "");
++            fprintf(f, "%s\n", u->core->default_source ? u->core->default_source->name : "");
+             fclose(f);
+         } else
+             pa_log("Failed to save default source: %s", pa_cstrerror(errno));
+--- a/src/modules/module-intended-roles.c
++++ b/src/modules/module-intended-roles.c
+@@ -69,7 +69,7 @@
+ 
+ static pa_hook_result_t sink_input_new_hook_callback(pa_core *c, pa_sink_input_new_data *new_data, struct userdata *u) {
+     const char *role;
+-    pa_sink *s, *def;
++    pa_sink *s;
+     uint32_t idx;
+ 
+     pa_assert(c);
+@@ -92,13 +92,13 @@
+     }
+ 
+     /* Prefer the default sink over any other sink, just in case... */
+-    if ((def = pa_namereg_get_default_sink(c)))
+-        if (role_match(def->proplist, role) && pa_sink_input_new_data_set_sink(new_data, def, false))
++    if (c->default_sink)
++        if (role_match(c->default_sink->proplist, role) && pa_sink_input_new_data_set_sink(new_data, c->default_sink, false))
+             return PA_HOOK_OK;
+ 
+     /* @todo: favour the highest priority device, not the first one we find? */
+     PA_IDXSET_FOREACH(s, c->sinks, idx) {
+-        if (s == def)
++        if (s == c->default_sink)
+             continue;
+ 
+         if (!PA_SINK_IS_LINKED(pa_sink_get_state(s)))
+@@ -113,7 +113,7 @@
+ 
+ static pa_hook_result_t source_output_new_hook_callback(pa_core *c, pa_source_output_new_data *new_data, struct userdata *u) {
+     const char *role;
+-    pa_source *s, *def;
++    pa_source *s;
+     uint32_t idx;
+ 
+     pa_assert(c);
+@@ -136,9 +136,9 @@
+     }
+ 
+     /* Prefer the default source over any other source, just in case... */
+-    if ((def = pa_namereg_get_default_source(c)))
+-        if (role_match(def->proplist, role)) {
+-            pa_source_output_new_data_set_source(new_data, def, false);
++    if (c->default_source)
++        if (role_match(c->default_source->proplist, role)) {
++            pa_source_output_new_data_set_source(new_data, c->default_source, false);
+             return PA_HOOK_OK;
+         }
+ 
+@@ -146,7 +146,7 @@
+         if (s->monitor_of)
+             continue;
+ 
+-        if (s == def)
++        if (s == c->default_source)
+             continue;
+ 
+         if (!PA_SOURCE_IS_LINKED(pa_source_get_state(s)))
+@@ -259,7 +259,6 @@
+ static pa_hook_result_t sink_unlink_hook_callback(pa_core *c, pa_sink *sink, struct userdata *u) {
+     pa_sink_input *si;
+     uint32_t idx;
+-    pa_sink *def;
+ 
+     pa_assert(c);
+     pa_assert(sink);
+@@ -271,7 +270,7 @@
+         return PA_HOOK_OK;
+ 
+     /* If there not default sink, then there is no sink at all */
+-    if (!(def = pa_namereg_get_default_sink(c)))
++    if (!c->default_sink)
+         return PA_HOOK_OK;
+ 
+     PA_IDXSET_FOREACH(si, sink->inputs, idx) {
+@@ -286,14 +285,14 @@
+             continue;
+ 
+         /* Would the default sink fit? If so, let's use it */
+-        if (def != sink && role_match(def->proplist, role))
+-            if (pa_sink_input_move_to(si, def, false) >= 0)
++        if (c->default_sink != sink && role_match(c->default_sink->proplist, role))
++            if (pa_sink_input_move_to(si, c->default_sink, false) >= 0)
+                 continue;
+ 
+         /* Try to find some other fitting sink */
+         /* @todo: favour the highest priority device, not the first one we find? */
+         PA_IDXSET_FOREACH(d, c->sinks, jdx) {
+-            if (d == def || d == sink)
++            if (d == c->default_sink || d == sink)
+                 continue;
+ 
+             if (!PA_SINK_IS_LINKED(pa_sink_get_state(d)))
+@@ -311,7 +310,6 @@
+ static pa_hook_result_t source_unlink_hook_callback(pa_core *c, pa_source *source, struct userdata *u) {
+     pa_source_output *so;
+     uint32_t idx;
+-    pa_source *def;
+ 
+     pa_assert(c);
+     pa_assert(source);
+@@ -323,7 +321,7 @@
+         return PA_HOOK_OK;
+ 
+     /* If there not default source, then there is no source at all */
+-    if (!(def = pa_namereg_get_default_source(c)))
++    if (!c->default_source)
+         return PA_HOOK_OK;
+ 
+     PA_IDXSET_FOREACH(so, source->outputs, idx) {
+@@ -341,15 +339,16 @@
+             continue;
+ 
+         /* Would the default source fit? If so, let's use it */
+-        if (def != source && role_match(def->proplist, role) && !source->monitor_of == !def->monitor_of) {
+-            pa_source_output_move_to(so, def, false);
++        if (c->default_source != source && role_match(c->default_source->proplist, role)
++                && !source->monitor_of == !c->default_source->monitor_of) {
++            pa_source_output_move_to(so, c->default_source, false);
+             continue;
+         }
+ 
+         /* Try to find some other fitting source */
+         /* @todo: favour the highest priority device, not the first one we find? */
+         PA_IDXSET_FOREACH(d, c->sources, jdx) {
+-            if (d == def || d == source)
++            if (d == c->default_source || d == source)
+                 continue;
+ 
+             if (!PA_SOURCE_IS_LINKED(pa_source_get_state(d)))
+--- a/src/modules/module-rescue-streams.c
++++ b/src/modules/module-rescue-streams.c
+@@ -96,7 +96,7 @@
+ }
+ 
+ static pa_sink* find_evacuation_sink(pa_core *c, pa_sink_input *i, pa_sink *skip) {
+-    pa_sink *target, *def, *fb_sink = NULL;
++    pa_sink *target, *fb_sink = NULL;
+     uint32_t idx;
+     pa_hashmap *all_ports;
+     pa_device_port *best_port;
+@@ -104,15 +104,13 @@
+     pa_assert(c);
+     pa_assert(i);
+ 
+-    def = pa_namereg_get_default_sink(c);
+-
+-    if (def && def != skip && pa_sink_input_may_move_to(i, def))
+-        return def;
++    if (c->default_sink && c->default_sink != skip && pa_sink_input_may_move_to(i, c->default_sink))
++        return c->default_sink;
+ 
+     all_ports = pa_hashmap_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
+ 
+     PA_IDXSET_FOREACH(target, c->sinks, idx) {
+-        if (target == def)
++        if (target == c->default_sink)
+             continue;
+ 
+         if (target == skip)
+@@ -204,7 +202,7 @@
+ }
+ 
+ static pa_source* find_evacuation_source(pa_core *c, pa_source_output *o, pa_source *skip) {
+-    pa_source *target, *def, *fb_source = NULL;
++    pa_source *target, *fb_source = NULL;
+     uint32_t idx;
+     pa_hashmap *all_ports;
+     pa_device_port *best_port;
+@@ -212,15 +210,13 @@
+     pa_assert(c);
+     pa_assert(o);
+ 
+-    def = pa_namereg_get_default_source(c);
+-
+-    if (def && def != skip && pa_source_output_may_move_to(o, def))
+-        return def;
++    if (c->default_source && c->default_source != skip && pa_source_output_may_move_to(o, c->default_source))
++        return c->default_source;
+ 
+     all_ports = pa_hashmap_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
+ 
+     PA_IDXSET_FOREACH(target, c->sources, idx) {
+-        if (target == def)
++        if (target == c->default_source)
+             continue;
+ 
+         if (target == skip)
+--- a/src/modules/module-switch-on-connect.c
++++ b/src/modules/module-switch-on-connect.c
+@@ -58,7 +58,7 @@
+ static pa_hook_result_t sink_put_hook_callback(pa_core *c, pa_sink *sink, void* userdata) {
+     pa_sink_input *i;
+     uint32_t idx;
+-    pa_sink *def;
++    pa_sink *old_default_sink;
+     const char *s, *class;
+     struct userdata *u = userdata;
+ 
+@@ -84,24 +84,25 @@
+             return PA_HOOK_OK;
+     }
+ 
+-    def = pa_namereg_get_default_sink(c);
+-    if (def == sink)
++    if (c->default_sink == sink)
+         return PA_HOOK_OK;
+ 
+     if (u->only_from_unavailable)
+-        if (!def->active_port || def->active_port->available != PA_AVAILABLE_NO)
++        if (!c->default_sink->active_port || c->default_sink->active_port->available != PA_AVAILABLE_NO)
+             return PA_HOOK_OK;
+ 
++    old_default_sink = c->default_sink;
++
+     /* Actually do the switch to the new sink */
+-    pa_namereg_set_default_sink(c, sink);
++    pa_core_set_configured_default_sink(c, sink);
+ 
+     /* Now move all old inputs over */
+-    if (pa_idxset_size(def->inputs) <= 0) {
++    if (pa_idxset_size(old_default_sink->inputs) <= 0) {
+         pa_log_debug("No sink inputs to move away.");
+         return PA_HOOK_OK;
+     }
+ 
+-    PA_IDXSET_FOREACH(i, def->inputs, idx) {
++    PA_IDXSET_FOREACH(i, old_default_sink->inputs, idx) {
+         if (i->save_sink || !PA_SINK_INPUT_IS_LINKED(i->state))
+             continue;
+ 
+@@ -119,7 +120,7 @@
+ static pa_hook_result_t source_put_hook_callback(pa_core *c, pa_source *source, void* userdata) {
+     pa_source_output *o;
+     uint32_t idx;
+-    pa_source *def;
++    pa_source *old_default_source;
+     const char *s, *class;
+     struct userdata *u = userdata;
+ 
+@@ -149,24 +150,25 @@
+             return PA_HOOK_OK;
+     }
+ 
+-    def = pa_namereg_get_default_source(c);
+-    if (def == source)
++    if (c->default_source == source)
+         return PA_HOOK_OK;
+ 
+     if (u->only_from_unavailable)
+-        if (!def->active_port || def->active_port->available != PA_AVAILABLE_NO)
++        if (!c->default_source->active_port || c->default_source->active_port->available != PA_AVAILABLE_NO)
+             return PA_HOOK_OK;
+ 
++    old_default_source = c->default_source;
++
+     /* Actually do the switch to the new source */
+-    pa_namereg_set_default_source(c, source);
++    pa_core_set_configured_default_source(c, source);
+ 
+     /* Now move all old outputs over */
+-    if (pa_idxset_size(def->outputs) <= 0) {
++    if (pa_idxset_size(old_default_source->outputs) <= 0) {
+         pa_log_debug("No source outputs to move away.");
+         return PA_HOOK_OK;
+     }
+ 
+-    PA_IDXSET_FOREACH(o, def->outputs, idx) {
++    PA_IDXSET_FOREACH(o, old_default_source->outputs, idx) {
+         if (o->save_source || !PA_SOURCE_OUTPUT_IS_LINKED(o->state))
+             continue;
+ 
+--- a/src/pulsecore/cli-command.c
++++ b/src/pulsecore/cli-command.c
+@@ -344,8 +344,6 @@
+     char bytes[PA_BYTES_SNPRINT_MAX];
+     const pa_mempool_stat *mstat;
+     unsigned k;
+-    pa_sink *def_sink;
+-    pa_source *def_source;
+ 
+     static const char* const type_table[PA_MEMBLOCK_TYPE_MAX] = {
+         [PA_MEMBLOCK_POOL] = "POOL",
+@@ -388,12 +386,10 @@
+     pa_strbuf_printf(buf, "Default channel map: %s\n",
+                      pa_channel_map_snprint(cm, sizeof(cm), &c->default_channel_map));
+ 
+-    def_sink = pa_namereg_get_default_sink(c);
+-    def_source = pa_namereg_get_default_source(c);
+     pa_strbuf_printf(buf, "Default sink name: %s\n"
+                      "Default source name: %s\n",
+-                     def_sink ? def_sink->name : "none",
+-                     def_source ? def_source->name : "none");
++                     c->default_sink ? c->default_sink->name : "none",
++                     c->default_source ? c->default_source->name : "none");
+ 
+     for (k = 0; k < PA_MEMBLOCK_TYPE_MAX; k++)
+         pa_strbuf_printf(buf,
+@@ -1034,7 +1030,7 @@
+     }
+ 
+     if ((s = pa_namereg_get(c, n, PA_NAMEREG_SINK)))
+-        pa_namereg_set_default_sink(c, s);
++        pa_core_set_configured_default_sink(c, s);
+     else
+         pa_strbuf_printf(buf, "Sink %s does not exist.\n", n);
+ 
+@@ -1056,7 +1052,7 @@
+     }
+ 
+     if ((s = pa_namereg_get(c, n, PA_NAMEREG_SOURCE)))
+-        pa_namereg_set_default_source(c, s);
++        pa_core_set_configured_default_source(c, s);
+     else
+         pa_strbuf_printf(buf, "Source %s does not exist.\n", n);
+     return 0;
+@@ -1850,20 +1846,20 @@
+     }
+ 
+     nl = false;
+-    if ((sink = pa_namereg_get_default_sink(c))) {
++    if (c->default_sink) {
+         if (!nl) {
+             pa_strbuf_puts(buf, "\n");
+             nl = true;
+         }
+ 
+-        pa_strbuf_printf(buf, "set-default-sink %s\n", sink->name);
++        pa_strbuf_printf(buf, "set-default-sink %s\n", c->default_sink->name);
+     }
+ 
+-    if ((source = pa_namereg_get_default_source(c))) {
++    if (c->default_source) {
+         if (!nl)
+             pa_strbuf_puts(buf, "\n");
+ 
+-        pa_strbuf_printf(buf, "set-default-source %s\n", source->name);
++        pa_strbuf_printf(buf, "set-default-source %s\n", c->default_source->name);
+     }
+ 
+     pa_strbuf_puts(buf, "\n### EOF\n");
+--- a/src/pulsecore/cli-text.c
++++ b/src/pulsecore/cli-text.c
+@@ -232,7 +232,7 @@
+ 
+ char *pa_sink_list_to_string(pa_core *c) {
+     pa_strbuf *s;
+-    pa_sink *sink, *default_sink;
++    pa_sink *sink;
+     uint32_t idx = PA_IDXSET_INVALID;
+     pa_assert(c);
+ 
+@@ -240,8 +240,6 @@
+ 
+     pa_strbuf_printf(s, "%u sink(s) available.\n", pa_idxset_size(c->sinks));
+ 
+-    default_sink = pa_namereg_get_default_sink(c);
+-
+     PA_IDXSET_FOREACH(sink, c->sinks, idx) {
+         char ss[PA_SAMPLE_SPEC_SNPRINT_MAX],
+             cv[PA_CVOLUME_SNPRINT_VERBOSE_MAX],
+@@ -273,7 +271,7 @@
+             "\tchannel map: %s%s%s\n"
+             "\tused by: %u\n"
+             "\tlinked by: %u\n",
+-            sink == default_sink ? '*' : ' ',
++            sink == c->default_sink ? '*' : ' ',
+             sink->index,
+             sink->name,
+             sink->driver,
+@@ -350,7 +348,7 @@
+ 
+ char *pa_source_list_to_string(pa_core *c) {
+     pa_strbuf *s;
+-    pa_source *source, *default_source;
++    pa_source *source;
+     uint32_t idx = PA_IDXSET_INVALID;
+     pa_assert(c);
+ 
+@@ -358,8 +356,6 @@
+ 
+     pa_strbuf_printf(s, "%u source(s) available.\n", pa_idxset_size(c->sources));
+ 
+-    default_source = pa_namereg_get_default_source(c);
+-
+     PA_IDXSET_FOREACH(source, c->sources, idx) {
+         char ss[PA_SAMPLE_SPEC_SNPRINT_MAX],
+             cv[PA_CVOLUME_SNPRINT_VERBOSE_MAX],
+@@ -389,7 +385,7 @@
+             "\tchannel map: %s%s%s\n"
+             "\tused by: %u\n"
+             "\tlinked by: %u\n",
+-            source == default_source ? '*' : ' ',
++            source == c->default_source ? '*' : ' ',
+             source->index,
+             source->name,
+             source->driver,
+--- a/src/pulsecore/core.c
++++ b/src/pulsecore/core.c
+@@ -231,6 +231,176 @@
+     pa_xfree(c);
+ }
+ 
++void pa_core_set_configured_default_sink(pa_core *core, pa_sink *sink) {
++    pa_sink *old_sink;
++
++    pa_assert(core);
++
++    old_sink = core->configured_default_sink;
++
++    if (sink == old_sink)
++        return;
++
++    core->configured_default_sink = sink;
++    pa_log_info("configured_default_sink: %s -> %s",
++                old_sink ? old_sink->name : "(unset)", sink ? sink->name : "(unset)");
++
++    pa_core_update_default_sink(core);
++}
++
++void pa_core_set_configured_default_source(pa_core *core, pa_source *source) {
++    pa_source *old_source;
++
++    pa_assert(core);
++
++    old_source = core->configured_default_source;
++
++    if (source == old_source)
++        return;
++
++    core->configured_default_source = source;
++    pa_log_info("configured_default_source: %s -> %s",
++                old_source ? old_source->name : "(unset)", source ? source->name : "(unset)");
++
++    pa_core_update_default_source(core);
++}
++
++/* a  < b  ->  return -1
++ * a == b  ->  return  0
++ * a  > b  ->  return  1 */
++static int compare_sinks(pa_sink *a, pa_sink *b) {
++    pa_core *core;
++
++    core = a->core;
++
++    /* The configured default sink is preferred over any other sink. */
++    if (b == core->configured_default_sink)
++        return -1;
++    if (a == core->configured_default_sink)
++        return 1;
++
++    if (a->priority < b->priority)
++        return -1;
++    if (a->priority > b->priority)
++        return 1;
++
++    /* It's hard to find any difference between these sinks, but maybe one of
++     * them is already the default sink? If so, it's best to keep it as the
++     * default to avoid changing the routing for no good reason. */
++    if (b == core->default_sink)
++        return -1;
++    if (a == core->default_sink)
++        return 1;
++
++    return 0;
++}
++
++void pa_core_update_default_sink(pa_core *core) {
++    pa_sink *best = NULL;
++    pa_sink *sink;
++    uint32_t idx;
++    pa_sink *old_default_sink;
++
++    pa_assert(core);
++
++    PA_IDXSET_FOREACH(sink, core->sinks, idx) {
++        if (!best) {
++            best = sink;
++            continue;
++        }
++
++        if (compare_sinks(sink, best) > 0)
++            best = sink;
++    }
++
++    old_default_sink = core->default_sink;
++
++    if (best == old_default_sink)
++        return;
++
++    core->default_sink = best;
++    pa_log_info("default_sink: %s -> %s",
++                old_default_sink ? old_default_sink->name : "(unset)", best ? best->name : "(unset)");
++
++    /* If the default sink changed, it may be that the default source has to be
++     * changed too, because monitor sources are prioritized partly based on the
++     * priorities of the monitored sinks. */
++    pa_core_update_default_source(core);
++
++    pa_subscription_post(core, PA_SUBSCRIPTION_EVENT_SERVER | PA_SUBSCRIPTION_EVENT_CHANGE, PA_INVALID_INDEX);
++    pa_hook_fire(&core->hooks[PA_CORE_HOOK_DEFAULT_SINK_CHANGED], core->default_sink);
++}
++
++/* a  < b  ->  return -1
++ * a == b  ->  return  0
++ * a  > b  ->  return  1 */
++static int compare_sources(pa_source *a, pa_source *b) {
++    pa_core *core;
++
++    core = a->core;
++
++    /* The configured default source is preferred over any other source. */
++    if (b == core->configured_default_source)
++        return -1;
++    if (a == core->configured_default_source)
++        return 1;
++
++    /* Monitor sources lose to non-monitor sources. */
++    if (a->monitor_of && !b->monitor_of)
++        return -1;
++    if (!a->monitor_of && b->monitor_of)
++        return 1;
++
++    if (a->priority < b->priority)
++        return -1;
++    if (a->priority > b->priority)
++        return 1;
++
++    /* If the sources are monitors, we can compare the monitored sinks. */
++    if (a->monitor_of)
++        return compare_sinks(a->monitor_of, b->monitor_of);
++
++    /* It's hard to find any difference between these sources, but maybe one of
++     * them is already the default source? If so, it's best to keep it as the
++     * default to avoid changing the routing for no good reason. */
++    if (b == core->default_source)
++        return -1;
++    if (a == core->default_source)
++        return 1;
++
++    return 0;
++}
++
++void pa_core_update_default_source(pa_core *core) {
++    pa_source *best = NULL;
++    pa_source *source;
++    uint32_t idx;
++    pa_source *old_default_source;
++
++    pa_assert(core);
++
++    PA_IDXSET_FOREACH(source, core->sources, idx) {
++        if (!best) {
++            best = source;
++            continue;
++        }
++
++        if (compare_sources(source, best) > 0)
++            best = source;
++    }
++
++    old_default_source = core->default_source;
++
++    if (best == old_default_source)
++        return;
++
++    core->default_source = best;
++    pa_log_info("default_source: %s -> %s",
++                old_default_source ? old_default_source->name : "(unset)", best ? best->name : "(unset)");
++    pa_subscription_post(core, PA_SUBSCRIPTION_EVENT_SERVER | PA_SUBSCRIPTION_EVENT_CHANGE, PA_INVALID_INDEX);
++    pa_hook_fire(&core->hooks[PA_CORE_HOOK_DEFAULT_SOURCE_CHANGED], core->default_source);
++}
++
+ static void exit_callback(pa_mainloop_api *m, pa_time_event *e, const struct timeval *t, void *userdata) {
+     pa_core *c = userdata;
+     pa_assert(c->exit_event == e);
+--- a/src/pulsecore/core.h
++++ b/src/pulsecore/core.h
+@@ -161,9 +161,18 @@
+     /* Some hashmaps for all sorts of entities */
+     pa_hashmap *namereg, *shared;
+ 
+-    /* The default sink/source */
+-    pa_source *default_source;
++    /* The default sink/source as configured by the user. If the user hasn't
++     * explicitly configured anything, these are set to NULL. */
++    pa_sink *configured_default_sink;
++    pa_source *configured_default_source;
++
++    /* The effective default sink/source. If no sink or source is explicitly
++     * configured as the default, we pick the device that ranks highest
++     * according to the compare_sinks() and compare_sources() functions in
++     * core.c. pa_core_update_default_sink/source() has to be called whenever
++     * anything changes that might change the comparison results. */
+     pa_sink *default_sink;
++    pa_source *default_source;
+ 
+     pa_channel_map default_channel_map;
+     pa_sample_spec default_sample_spec;
+@@ -223,6 +232,21 @@
+ 
+ pa_core* pa_core_new(pa_mainloop_api *m, bool shared, size_t shm_size);
+ 
++void pa_core_set_configured_default_sink(pa_core *core, pa_sink *sink);
++void pa_core_set_configured_default_source(pa_core *core, pa_source *source);
++
++/* These should be called whenever something changes that may affect the
++ * default sink or source choice.
++ *
++ * If the default source choice happens between two monitor sources, the
++ * monitored sinks are compared, so if the default sink changes, the default
++ * source may change too. However, pa_core_update_default_sink() calls
++ * pa_core_update_default_source() internally, so it's sufficient to only call
++ * pa_core_update_default_sink() when something happens that affects the sink
++ * ordering. */
++void pa_core_update_default_sink(pa_core *core);
++void pa_core_update_default_source(pa_core *core);
++
+ /* Check whether no one is connected to this core */
+ void pa_core_check_idle(pa_core *c);
+ 
+--- a/src/pulsecore/namereg.c
++++ b/src/pulsecore/namereg.c
+@@ -168,17 +168,6 @@
+ 
+     pa_assert_se(pa_hashmap_put(c->namereg, e->name, e) >= 0);
+ 
+-    /* If a sink or source is registered and there was none registered
+-     * before we inform the clients which then can ask for the default
+-     * sink/source which is then assigned. We don't adjust the default
+-     * sink/source here right away to give the module the chance to
+-     * register more sinks/sources before we choose a new default
+-     * sink/source. */
+-
+-    if ((!c->default_sink && type == PA_NAMEREG_SINK) ||
+-        (!c->default_source && type == PA_NAMEREG_SOURCE))
+-        pa_subscription_post(c, PA_SUBSCRIPTION_EVENT_SERVER|PA_SUBSCRIPTION_EVENT_CHANGE, PA_INVALID_INDEX);
+-
+     return e->name;
+ }
+ 
+@@ -189,12 +178,6 @@
+     pa_assert(name);
+ 
+     pa_assert_se(e = pa_hashmap_remove(c->namereg, name));
+-
+-    if (c->default_sink == e->data)
+-        pa_namereg_set_default_sink(c, NULL);
+-    else if (c->default_source == e->data)
+-        pa_namereg_set_default_source(c, NULL);
+-
+     pa_xfree(e->name);
+     pa_xfree(e);
+ }
+@@ -205,22 +188,16 @@
+     pa_assert(c);
+ 
+     if (type == PA_NAMEREG_SOURCE && (!name || pa_streq(name, "@DEFAULT_SOURCE@"))) {
+-        pa_source *s;
+-
+-        if ((s = pa_namereg_get_default_source(c)))
+-            return s;
++        return c->default_source;
+ 
+     } else if (type == PA_NAMEREG_SINK && (!name || pa_streq(name, "@DEFAULT_SINK@"))) {
+-        pa_sink *s;
+-
+-        if ((s = pa_namereg_get_default_sink(c)))
+-            return s;
++        return c->default_sink;
+ 
+     } else if (type == PA_NAMEREG_SOURCE && name && pa_streq(name, "@DEFAULT_MONITOR@")) {
+-        pa_sink *s;
+-
+-        if ((s = pa_namereg_get(c, NULL, PA_NAMEREG_SINK)))
+-            return s->monitor_source;
++        if (c->default_sink)
++            return c->default_sink->monitor_source;
++        else
++            return NULL;
+     }
+ 
+     if (!name)
+@@ -248,83 +225,3 @@
+ 
+     return NULL;
+ }
+-
+-pa_sink* pa_namereg_set_default_sink(pa_core*c, pa_sink *s) {
+-    pa_assert(c);
+-
+-    if (s && !PA_SINK_IS_LINKED(pa_sink_get_state(s)))
+-        return NULL;
+-
+-    if (c->default_sink != s) {
+-        c->default_sink = s;
+-        pa_hook_fire(&c->hooks[PA_CORE_HOOK_DEFAULT_SINK_CHANGED], c->default_sink);
+-        pa_subscription_post(c, PA_SUBSCRIPTION_EVENT_SERVER|PA_SUBSCRIPTION_EVENT_CHANGE, PA_INVALID_INDEX);
+-    }
+-
+-    return s;
+-}
+-
+-pa_source* pa_namereg_set_default_source(pa_core*c, pa_source *s) {
+-    pa_assert(c);
+-
+-    if (s && !PA_SOURCE_IS_LINKED(pa_source_get_state(s)))
+-        return NULL;
+-
+-    if (c->default_source != s) {
+-        c->default_source = s;
+-        pa_hook_fire(&c->hooks[PA_CORE_HOOK_DEFAULT_SOURCE_CHANGED], c->default_source);
+-        pa_subscription_post(c, PA_SUBSCRIPTION_EVENT_SERVER|PA_SUBSCRIPTION_EVENT_CHANGE, PA_INVALID_INDEX);
+-    }
+-
+-    return s;
+-}
+-
+-pa_sink *pa_namereg_get_default_sink(pa_core *c) {
+-    pa_sink *s, *best = NULL;
+-    uint32_t idx;
+-
+-    pa_assert(c);
+-
+-    if (c->default_sink && PA_SINK_IS_LINKED(pa_sink_get_state(c->default_sink)))
+-        return c->default_sink;
+-
+-    PA_IDXSET_FOREACH(s, c->sinks, idx)
+-        if (PA_SINK_IS_LINKED(pa_sink_get_state(s)))
+-            if (!best || s->priority > best->priority)
+-                best = s;
+-
+-    return best;
+-}
+-
+-pa_source *pa_namereg_get_default_source(pa_core *c) {
+-    pa_source *s, *best = NULL;
+-    uint32_t idx;
+-
+-    pa_assert(c);
+-
+-    if (c->default_source && PA_SOURCE_IS_LINKED(pa_source_get_state(c->default_source)))
+-        return c->default_source;
+-
+-    /* First, try to find one that isn't a monitor */
+-    PA_IDXSET_FOREACH(s, c->sources, idx)
+-        if (!s->monitor_of && PA_SOURCE_IS_LINKED(pa_source_get_state(s)))
+-            if (!best ||
+-                s->priority > best->priority)
+-                best = s;
+-
+-    if (best)
+-        return best;
+-
+-    /* Then, fallback to a monitor */
+-    PA_IDXSET_FOREACH(s, c->sources, idx)
+-        if (PA_SOURCE_IS_LINKED(pa_source_get_state(s)))
+-            if (!best ||
+-                s->priority > best->priority ||
+-                (s->priority == best->priority &&
+-                 s->monitor_of &&
+-                 best->monitor_of &&
+-                 s->monitor_of->priority > best->monitor_of->priority))
+-                best = s;
+-
+-    return best;
+-}
+--- a/src/pulsecore/namereg.h
++++ b/src/pulsecore/namereg.h
+@@ -36,12 +36,6 @@
+ void pa_namereg_unregister(pa_core *c, const char *name);
+ void* pa_namereg_get(pa_core *c, const char *name, pa_namereg_type_t type);
+ 
+-pa_sink* pa_namereg_set_default_sink(pa_core*c, pa_sink *s);
+-pa_source* pa_namereg_set_default_source(pa_core*c, pa_source *s);
+-
+-pa_sink *pa_namereg_get_default_sink(pa_core *c);
+-pa_source *pa_namereg_get_default_source(pa_core *c);
+-
+ bool pa_namereg_is_valid_name(const char *name);
+ bool pa_namereg_is_valid_name_or_wildcard(const char *name, pa_namereg_type_t type);
+ char* pa_namereg_make_valid_name(const char *name);
+--- a/src/pulsecore/protocol-native.c
++++ b/src/pulsecore/protocol-native.c
+@@ -3790,6 +3790,7 @@
+     pa_source *def_source;
+     pa_sample_spec fixed_ss;
+     char *h, *u;
++    pa_core *core;
+ 
+     pa_native_connection_assert_ref(c);
+     pa_assert(t);
+@@ -3803,10 +3804,12 @@
+ 
+     CHECK_ACCESS(c, command, tag, PA_INVALID_INDEX, NULL);
+ 
+-    def_sink = pa_namereg_get_default_sink(c->protocol->core);
++    core = c->protocol->core;
++
++    def_sink = core->default_sink;
+     if (def_sink)
+         CHECK_ACCESS_STMT(c, PA_COMMAND_GET_SINK_INFO, tag, def_sink->index, NULL, return, def_sink = NULL);
+-    def_source = pa_namereg_get_default_source(c->protocol->core);
++    def_source = core->default_sink;
+     if (def_source)
+         CHECK_ACCESS_STMT(c, PA_COMMAND_GET_SOURCE_INFO, tag, def_source->index, NULL, return, def_source = NULL);
+ 
+@@ -3822,7 +3825,7 @@
+     pa_tagstruct_puts(reply, h);
+     pa_xfree(h);
+ 
+-    fixup_sample_spec(c, &fixed_ss, &c->protocol->core->default_sample_spec);
++    fixup_sample_spec(c, &fixed_ss, &core->default_sample_spec);
+     pa_tagstruct_put_sample_spec(reply, &fixed_ss);
+ 
+     pa_tagstruct_puts(reply, def_sink ? def_sink->name : NULL);
+@@ -3831,7 +3834,7 @@
+     pa_tagstruct_putu32(reply, c->protocol->core->cookie);
+ 
+     if (c->version >= 15)
+-        pa_tagstruct_put_channel_map(reply, &c->protocol->core->default_channel_map);
++        pa_tagstruct_put_channel_map(reply, &core->default_channel_map);
+ 
+     pa_pstream_send_tagstruct(c->pstream, reply);
+ }
+@@ -4508,7 +4511,7 @@
+         CHECK_VALIDITY(c->pstream, source, tag, PA_ERR_NOENTITY);
+         CHECK_ACCESS(c, command, tag, source->index, s);
+ 
+-        pa_namereg_set_default_source(c->protocol->core, source);
++        pa_core_set_configured_default_source(c->protocol->core, source);
+     } else {
+         pa_sink *sink;
+         pa_assert(command == PA_COMMAND_SET_DEFAULT_SINK);
+@@ -4517,7 +4520,7 @@
+         CHECK_VALIDITY(c->pstream, sink, tag, PA_ERR_NOENTITY);
+         CHECK_ACCESS(c, command, tag, sink->index, s);
+ 
+-        pa_namereg_set_default_sink(c->protocol->core, sink);
++        pa_core_set_configured_default_sink(c->protocol->core, sink);
+     }
+ 
+     pa_pstream_send_simple_ack(c->pstream, tag);
+--- a/src/pulsecore/sink.c
++++ b/src/pulsecore/sink.c
+@@ -660,6 +660,8 @@
+ 
+     pa_source_put(s->monitor_source);
+ 
++    pa_core_update_default_sink(s->core);
++
+     pa_subscription_post(s->core, PA_SUBSCRIPTION_EVENT_SINK | PA_SUBSCRIPTION_EVENT_NEW, s->index);
+     pa_hook_fire(&s->core->hooks[PA_CORE_HOOK_SINK_PUT], s);
+ }
+@@ -689,6 +691,11 @@
+         pa_namereg_unregister(s->core, s->name);
+     pa_idxset_remove_by_data(s->core->sinks, s, NULL);
+ 
++    if (s == s->core->configured_default_sink)
++        pa_core_set_configured_default_sink(s->core, NULL);
++    else
++        pa_core_update_default_sink(s->core);
++
+     if (s->card)
+         pa_idxset_remove_by_data(s->card->sinks, s, NULL);
+ 
+--- a/src/pulsecore/source.c
++++ b/src/pulsecore/source.c
+@@ -603,6 +603,8 @@
+     else
+         pa_assert_se(source_set_state(s, PA_SOURCE_IDLE) == 0);
+ 
++    pa_core_update_default_source(s->core);
++
+     pa_subscription_post(s->core, PA_SUBSCRIPTION_EVENT_SOURCE | PA_SUBSCRIPTION_EVENT_NEW, s->index);
+     pa_hook_fire(&s->core->hooks[PA_CORE_HOOK_SOURCE_PUT], s);
+ }
+@@ -627,6 +629,11 @@
+         pa_namereg_unregister(s->core, s->name);
+     pa_idxset_remove_by_data(s->core->sources, s, NULL);
+ 
++    if (s == s->core->configured_default_source)
++        pa_core_set_configured_default_source(s->core, NULL);
++    else
++        pa_core_update_default_source(s->core);
++
+     if (s->card)
+         pa_idxset_remove_by_data(s->card->sources, s, NULL);
+ 

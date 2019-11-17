@@ -70,7 +70,16 @@
 0804-build-sys-add-the-Dell-dock-TB16-configuration.patch
 0805-remove-libjson-c-dependency.patch
 
+# Backported changes by UBports
+0851-improve-default-sink-source-handling.patch
+0852-core-device-port-check-availability-when-choosing-th.patch
+0853-sink-source-update-the-default-sink-source-on-port-s.patch
+0854-sink-source-Don-t-update-default-sink-source-before-.patch
+0855-core-change-configured_default_sink-source-type-to-s.patch
+0856-core-ignore-devices-that-are-not-linked-when-choosin.patch
+
 # Allow out of tree modules
 0902-install_pulsecore_headers.patch
 0903-add-audioflingerglue.patch
 0904-droid-discover-add-support-for-android-7.1.patch
+0905-core-hack-to-make-old-module-ABI-compatible.patch

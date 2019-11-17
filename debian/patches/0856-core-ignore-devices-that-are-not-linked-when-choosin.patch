@@ -1,0 +1,47 @@
+From 970b475a255b6d98258e9a2b067de9bdc14e7337 Mon Sep 17 00:00:00 2001
+From: Tanu Kaskinen <tanuk@iki.fi>
+Date: Wed, 30 Aug 2017 21:51:15 +0300
+Subject: core: ignore devices that are not linked when choosing the default
+ sink or source
+
+Sources should probably be added to pa_core.sources in pa_source_put(),
+but currently they're added in pa_source_new(). A lot of stuff can
+happen between the pa_source_new() and pa_source_put() calls, and
+it has happened that the default source was updated during this time.
+Therefore, pa_core_update_default_source() needs to take it into account
+that not every source is necessarily linked.
+
+Origin: upstream, https://gitlab.freedesktop.org/pulseaudio/pulseaudio/commit/970b475a255b6d98258e9a2b067de9bdc14e7337
+Bug-UBports: https://github.com/ubports/ubuntu-touch/issues/1045
+Last-Update: 2019-11-17
+---
+ src/pulsecore/core.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/src/pulsecore/core.c b/src/pulsecore/core.c
+index e01677d5d..454c56685 100644
+--- a/src/pulsecore/core.c
++++ b/src/pulsecore/core.c
+@@ -315,6 +315,9 @@ void pa_core_update_default_sink(pa_core *core) {
+     pa_assert(core);
+ 
+     PA_IDXSET_FOREACH(sink, core->sinks, idx) {
++        if (!PA_SINK_IS_LINKED(sink->state))
++            continue;
++
+         if (!best) {
+             best = sink;
+             continue;
+@@ -399,6 +402,9 @@ void pa_core_update_default_source(pa_core *core) {
+     pa_assert(core);
+ 
+     PA_IDXSET_FOREACH(source, core->sources, idx) {
++        if (!PA_SOURCE_IS_LINKED(source->state))
++            continue;
++
+         if (!best) {
+             best = source;
+             continue;
+-- 
+2.17.1
+
