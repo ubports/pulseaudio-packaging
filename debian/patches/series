@@ -50,6 +50,7 @@
 0601-droid-alternative-hw-module-id.patch
 0602-droid-inputstream-config-parameters.pach
 0603-droid-port-priority-and-availability.patch
+0604-droid-bring-back-sco-fake-sink.patch
 
 0700-pulsecore-add-new-card-profile-hook.patch
 0701-bluetooth-bluez5-wait-for-all-profiles-to-connect.patch
