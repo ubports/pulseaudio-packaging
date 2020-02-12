@@ -1,7 +1,11 @@
-pulseaudio (1:8.0-1ubports7~exp1) UNRELEASED; urgency=medium
+pulseaudio (1:8.0-1ubports7~exp1) xenial; urgency=medium
 
+  * Rename {0805,0702}-bluez5-fix-default-profle-option-due-to-choose-initial
+    -profile-patch.patch
+  * Fix HFP over oFono audio call by bringing back SCO fake sink support
+    - 0604-droid-bring-back-sco-fake-sink.patch
 
- -- Ratchanan Srirattanamet <ratchanan@ubports.com>  Sat, 16 Nov 2019 02:44:04 +0700
+ -- Ratchanan Srirattanamet <ratchanan@ubports.com>  Wed, 12 Feb 2020 21:58:39 +0700
 
 pulseaudio (1:8.0-1ubports6) xenial; urgency=medium
 
