@@ -1,3 +1,10 @@
+pulseaudio (1:8.0-1ubports6) xenial; urgency=medium
+
+  * Add 0905-pa-bluez-thread-func.patch
+    - Apply upstream patch reducing a2dp buffer size and rewriting thread function
+
+ -- Alfred Neumayer <dev.beidl@gmail.com>  Mon, 24 Feb 2020 18:28:30 +0100
+
 pulseaudio (1:8.0-1ubports5) xenial; urgency=medium
 
   * Add 0904-droid-discover-add-support-for-android-7.1.patch
