@@ -49,3 +49,6 @@
 0902-install_pulsecore_headers.patch
 0903-add-audioflingerglue.patch
 0904-droid-discover-add-support-for-android-7.1.patch
+
+# Improve buffer dropping using bluez
+0905-pa-bluez-thread-func.patch
