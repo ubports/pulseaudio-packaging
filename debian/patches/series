@@ -49,3 +49,6 @@
 0902-install_pulsecore_headers.patch
 0903-add-audioflingerglue.patch
 0904-droid-discover-add-support-for-android-7.1.patch
+
+# Import Jolla addition of droid BT backend
+0905-droid-add-droid-headset-backend.patch
