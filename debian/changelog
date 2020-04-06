@@ -1,3 +1,10 @@
+pulseaudio (1:8.0-1ubports6) xenial; urgency=medium
+
+  * Add 0905-droid-add-droid-headset-backend.patch
+    - droid: Import "droid" backend from Jolla for BT volume
+
+ -- Alfred Neumayer <dev.beidl@gmail.com>  Mon, 06 Apr 2020 22:50:36 +0200
+
 pulseaudio (1:8.0-1ubports5) xenial; urgency=medium
 
   * Add 0904-droid-discover-add-support-for-android-7.1.patch
