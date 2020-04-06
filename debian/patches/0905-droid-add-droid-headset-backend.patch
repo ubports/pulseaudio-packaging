@@ -13,6 +13,59 @@ index 9b22ee0..d9d9e88 100644
  libbluez5_util_la_LDFLAGS = -avoid-version
  libbluez5_util_la_LIBADD = $(MODULE_LIBADD) $(DBUS_LIBS)
  libbluez5_util_la_CFLAGS = $(AM_CFLAGS) $(DBUS_CFLAGS)
+diff --git a/src/modules/bluetooth/backend-native.c b/src/modules/bluetooth/backend-native.c
+index 442bb64..b98efa3 100644
+--- a/src/modules/bluetooth/backend-native.c
++++ b/src/modules/bluetooth/backend-native.c
+@@ -153,6 +153,8 @@ static int bluez5_sco_acquire_cb(pa_bluetooth_transport *t, bool optional, size_
+     if (omtu)
+         *omtu = 48;
+ 
++    pa_bluetooth_droid_volume_control_acquire(t->device->discovery, t);
++
+     return sock;
+ 
+ fail_close:
+@@ -161,6 +163,8 @@ fail_close:
+ }
+ 
+ static void bluez5_sco_release_cb(pa_bluetooth_transport *t) {
++    pa_bluetooth_droid_volume_control_release(t->device->discovery);
++
+     pa_log_info("Transport %s released", t->path);
+     /* device will close the SCO socket for us */
+ }
+diff --git a/src/modules/bluetooth/backend-ofono.c b/src/modules/bluetooth/backend-ofono.c
+index 1c10716..161f22d 100644
+--- a/src/modules/bluetooth/backend-ofono.c
++++ b/src/modules/bluetooth/backend-ofono.c
+@@ -112,6 +112,8 @@ static struct hf_audio_card *hf_audio_card_new(pa_bluetooth_backend *backend, co
+ static void hf_audio_card_free(struct hf_audio_card *card) {
+     pa_assert(card);
+ 
++    pa_bluetooth_droid_volume_control_release(card->backend->discovery);
++
+     if (card->transport)
+         pa_bluetooth_transport_free(card->transport);
+ 
+@@ -187,6 +189,8 @@ static void hf_audio_agent_transport_release(pa_bluetooth_transport *t) {
+ 
+     pa_assert(card);
+ 
++    pa_bluetooth_droid_volume_control_release(card->backend->discovery);
++
+     pa_log_debug("Trying to release transport for card %s (fd %d)",
+                  card->path, card->fd);
+ 
+@@ -617,6 +621,8 @@ static DBusMessage *hf_audio_agent_new_connection(DBusConnection *c, DBusMessage
+ 
+     pa_bluetooth_transport_set_state(card->transport, PA_BLUETOOTH_TRANSPORT_STATE_PLAYING);
+ 
++    pa_bluetooth_droid_volume_control_acquire(backend->discovery, card->transport);
++
+     pa_assert_se(r = dbus_message_new_method_return(m));
+ 
+     return r;
 diff --git a/src/modules/bluetooth/bluez5-util.c b/src/modules/bluetooth/bluez5-util.c
 index 3acc4a5..cd81763 100644
 --- a/src/modules/bluetooth/bluez5-util.c
