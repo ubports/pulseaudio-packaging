@@ -12,10 +12,10 @@ Add hooks to core to check if certain operations are allowed.
  4 files changed, 111 insertions(+)
  create mode 100644 src/pulsecore/access.h
 
-Index: pulseaudio/src/Makefile.am
+Index: pulseaudio-8.0/src/Makefile.am
 ===================================================================
---- pulseaudio.orig/src/Makefile.am
-+++ pulseaudio/src/Makefile.am
+--- pulseaudio-8.0.orig/src/Makefile.am
++++ pulseaudio-8.0/src/Makefile.am
 @@ -641,6 +641,7 @@ commonlib_LTLIBRARIES = \
  # to the existing libpulse being linked to libpulsecommon). Duplicating the
  # code allows us to prevent this circular linking.
@@ -24,11 +24,11 @@ Index: pulseaudio/src/Makefile.am
  		pulse/client-conf.c pulse/client-conf.h \
  		pulse/fork-detect.c pulse/fork-detect.h \
  		pulse/format.c pulse/format.h \
-Index: pulseaudio/src/pulsecore/access.h
+Index: pulseaudio-8.0/src/pulsecore/access.h
 ===================================================================
 --- /dev/null
-+++ pulseaudio/src/pulsecore/access.h
-@@ -0,0 +1,102 @@
++++ pulseaudio-8.0/src/pulsecore/access.h
+@@ -0,0 +1,105 @@
 +#ifndef fooaccesshfoo
 +#define fooaccesshfoo
 +
@@ -57,6 +57,9 @@ Index: pulseaudio/src/pulsecore/access.h
 +#include <pulsecore/client.h>
 +
 +typedef enum pa_access_hook {
++    /* The zero value is used to indicate "no such hook" */
++    PA_ACCESS_HOOK_NONE,
++
 +    /* context */
 +    PA_ACCESS_HOOK_EXIT_DAEMON,
 +    PA_ACCESS_HOOK_SET_DEFAULT_SINK,
@@ -131,10 +134,10 @@ Index: pulseaudio/src/pulsecore/access.h
 +};
 +
 +#endif
-Index: pulseaudio/src/pulsecore/core.c
+Index: pulseaudio-8.0/src/pulsecore/core.c
 ===================================================================
---- pulseaudio.orig/src/pulsecore/core.c
-+++ pulseaudio/src/pulsecore/core.c
+--- pulseaudio-8.0.orig/src/pulsecore/core.c
++++ pulseaudio-8.0/src/pulsecore/core.c
 @@ -151,6 +151,9 @@ pa_core* pa_core_new(pa_mainloop_api *m,
      for (j = 0; j < PA_CORE_HOOK_MAX; j++)
          pa_hook_init(&c->hooks[j], c);
@@ -154,10 +157,10 @@ Index: pulseaudio/src/pulsecore/core.c
  
      pa_xfree(c);
  }
-Index: pulseaudio/src/pulsecore/core.h
+Index: pulseaudio-8.0/src/pulsecore/core.h
 ===================================================================
---- pulseaudio.orig/src/pulsecore/core.h
-+++ pulseaudio/src/pulsecore/core.h
+--- pulseaudio-8.0.orig/src/pulsecore/core.h
++++ pulseaudio-8.0/src/pulsecore/core.h
 @@ -49,6 +49,7 @@ typedef enum pa_suspend_cause {
  #include <pulsecore/source.h>
  #include <pulsecore/core-subscribe.h>
@@ -166,7 +169,7 @@ Index: pulseaudio/src/pulsecore/core.h
  
  typedef enum pa_server_type {
      PA_SERVER_TYPE_UNSET,
-@@ -206,6 +207,8 @@ struct pa_core {
+@@ -207,6 +208,8 @@ struct pa_core {
  
      /* hooks */
      pa_hook hooks[PA_CORE_HOOK_MAX];

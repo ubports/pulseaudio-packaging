@@ -1,12 +1,13 @@
 From: James Henstridge <james.henstridge@canonical.com>
-Date: Tue, 7 Aug 2018 12:40:59 +0800
+Date: Tue, 28 Apr 2020 14:42:07 +0800
 Subject: [PATCH] modules: add snap policy module
 
 Forwarded: not-needed
 
-This patch allows pulseaudio to limit audio recording to snaps with
-the audio-recording interface connected.  We will not pursue upstreaming
-this patch as the longer term solution will probably use PipeWire.
+This patch allows pulseaudio to limit audio recording to snaps with the
+audio-recording interface connected, and prohibit snaps from performing
+certain operations completely.  We will not pursue upstreaming this
+patch as the longer term solution will probably use PipeWire.
 
 Co-authored-by: Simon Fels <simon.fels@canonical.com>
 ---
@@ -16,11 +17,11 @@ Co-authored-by: Simon Fels <simon.fels@canonical.com>
  3 files changed, 415 insertions(+)
  create mode 100644 src/modules/module-snap-policy.c
 
-diff --git a/configure.ac b/configure.ac
-index 7783026..e308081 100644
---- a/configure.ac
-+++ b/configure.ac
-@@ -1428,6 +1428,22 @@ AS_IF([test "x$enable_trust_store" = "xyes" && test "x$HAVE_TRUST_STORE" = "x0"]
+Index: pulseaudio-8.0/configure.ac
+===================================================================
+--- pulseaudio-8.0.orig/configure.ac
++++ pulseaudio-8.0/configure.ac
+@@ -1428,6 +1428,22 @@ AS_IF([test "x$enable_trust_store" = "xy
  
  AM_CONDITIONAL([HAVE_TRUST_STORE], [test "x$HAVE_TRUST_STORE" = "x1"])
  
@@ -43,7 +44,7 @@ index 7783026..e308081 100644
  
  ###################################
  #            Output               #
-@@ -1605,6 +1621,7 @@ AS_IF([test "x$HAVE_ESOUND" = "x1" -a "x$USE_PER_USER_ESOUND_SOCKET" = "x1"], EN
+@@ -1605,6 +1621,7 @@ AS_IF([test "x$HAVE_ESOUND" = "x1" -a "x
  AS_IF([test "x$HAVE_GCOV" = "x1"], ENABLE_GCOV=yes, ENABLE_GCOV=no)
  AS_IF([test "x$HAVE_LIBCHECK" = "x1"], ENABLE_TESTS=yes, ENABLE_TESTS=no)
  AS_IF([test "x$enable_legacy_database_entry_format" != "xno"], ENABLE_LEGACY_DATABASE_ENTRY_FORMAT=yes, ENABLE_LEGACY_DATABASE_ENTRY_FORMAT=no)
@@ -59,10 +60,10 @@ index 7783026..e308081 100644
      Enable gcov coverage:          ${ENABLE_GCOV}
      Enable unit tests:             ${ENABLE_TESTS}
      Database
-diff --git a/src/Makefile.am b/src/Makefile.am
-index d8337a9..4046bca 100644
---- a/src/Makefile.am
-+++ b/src/Makefile.am
+Index: pulseaudio-8.0/src/Makefile.am
+===================================================================
+--- pulseaudio-8.0.orig/src/Makefile.am
++++ pulseaudio-8.0/src/Makefile.am
 @@ -1216,6 +1216,11 @@ modlibexec_LTLIBRARIES += \
  		module-esound-sink.la
  endif
@@ -75,7 +76,7 @@ index d8337a9..4046bca 100644
  # See comment at librtp.la above
  if !OS_IS_WIN32
  modlibexec_LTLIBRARIES += \
-@@ -2143,6 +2148,14 @@ module_trust_store_la_LIBADD = $(MODULE_LIBADD) libtruststore-util.la
+@@ -2143,6 +2148,14 @@ module_trust_store_la_LIBADD = $(MODULE_
  module_trust_store_la_CFLAGS = $(AM_CFLAGS) -DHAVE_TRUST_STORE=1
  endif
  
@@ -90,12 +91,11 @@ index d8337a9..4046bca 100644
  # RTP modules
  module_rtp_send_la_SOURCES = modules/rtp/module-rtp-send.c
  module_rtp_send_la_LDFLAGS = $(MODULE_LDFLAGS)
-diff --git a/src/modules/module-snap-policy.c b/src/modules/module-snap-policy.c
-new file mode 100644
-index 0000000..0a1f5f4
+Index: pulseaudio-8.0/src/modules/module-snap-policy.c
+===================================================================
 --- /dev/null
-+++ b/src/modules/module-snap-policy.c
-@@ -0,0 +1,384 @@
++++ pulseaudio-8.0/src/modules/module-snap-policy.c
+@@ -0,0 +1,427 @@
 +/***
 +    This file is part of PulseAudio.
 +
@@ -155,7 +155,12 @@ index 0000000..0a1f5f4
 +
 +struct userdata {
 +    pa_io_event *io_event;
-+    pa_hook_slot *connect_hook_slot;
++    pa_hook_slot *connect_record_hook_slot;
++    pa_hook_slot *exit_daemon_hook_slot;
++    pa_hook_slot *get_module_info_hook_slot;
++    pa_hook_slot *load_module_hook_slot;
++    pa_hook_slot *unload_module_hook_slot;
++    pa_hook_slot *kill_client_hook_slot;
 +
 +    pa_thread *thread;
 +    pa_mutex *mutex;
@@ -184,31 +189,31 @@ index 0000000..0a1f5f4
 +    pa_mutex_unlock(u->mutex);
 +}
 +
-+static void get_interfaces_finished(GObject *source_object,
-+                                    GAsyncResult *result,
-+                                    gpointer user_data)
++static void get_connections_finished(GObject *source_object,
++                                     GAsyncResult *result,
++                                     gpointer user_data)
 +{
 +    struct per_client *pc = user_data;
 +    struct userdata *u = pc->userdata;
 +    bool grant_access = false;
 +    g_autoptr(GError) error = NULL;
-+    g_autoptr(GPtrArray) plugs = NULL;
++    g_autoptr(GPtrArray) established = NULL;
 +    unsigned i;
 +
-+    if (!snapd_client_get_interfaces_finish(u->snapd, result, &plugs, NULL, &error)) {
-+        pa_log_warn("snapd_client_get_interfaces failed: %s", error->message);
++    if (!snapd_client_get_connections2_finish(u->snapd, result, &established, NULL, NULL, NULL, &error)) {
++        pa_log_warn("snapd_client_get_connections2 failed: %s", error->message);
 +        goto end;
 +    }
 +
 +    /* determine pc->grant_access */
-+    for (i = 0; i < plugs->len; i++) {
-+        SnapdPlug *plug = plugs->pdata[i];
-+        const char *snap_name = snapd_plug_get_snap(plug);
-+        const char *iface = snapd_plug_get_interface(plug);
-+        const bool connected = snapd_plug_get_connections(plug)->len != 0;
++    for (i = 0; i < established->len; i++) {
++        SnapdConnection *conn = established->pdata[i];
++        SnapdPlugRef *plug = snapd_connection_get_plug(conn);
++        const char *snap_name = snapd_plug_ref_get_snap(plug);
++        const char *iface = snapd_connection_get_interface(conn);
 +
 +        /* We are only interested in connected plugs of our snap */
-+        if (!connected || strcmp(snap_name, pc->snap_name) != 0) {
++        if (strcmp(snap_name, pc->snap_name) != 0) {
 +            continue;
 +        }
 +        if (!strcmp(iface, "pulseaudio") || !strcmp(iface, "audio-record")) {
@@ -245,8 +250,9 @@ index 0000000..0a1f5f4
 +
 +    /* We have a non-classic snap, we need to check its connected
 +     * interfaces */
-+    snapd_client_get_interfaces_async(u->snapd, u->cancellable,
-+                                      get_interfaces_finished, pc);
++    snapd_client_get_connections2_async(
++        u->snapd, SNAPD_GET_CONNECTIONS_FLAGS_NONE, pc->snap_name, NULL,
++        u->cancellable, get_connections_finished, pc);
 +}
 +
 +
@@ -429,6 +435,22 @@ index 0000000..0a1f5f4
 +    pa_asyncq_read_before_poll(u->results);
 +}
 +
++/* An access control hook that blocks access to snaps */
++static pa_hook_result_t deny_to_snaps_hook(pa_core *core, pa_access_data *d,
++                                           struct userdata *u) {
++    char *snap_name = NULL;
++    bool is_snap;
++
++    snap_name = client_get_snap_name(core, d->client_index);
++    is_snap = snap_name != NULL;
++    pa_xfree(snap_name);
++
++    if (is_snap) {
++        return PA_HOOK_STOP;
++    }
++    return PA_HOOK_OK;
++}
++
 +int pa__init(pa_module *m) {
 +    struct userdata *u;
 +
@@ -447,9 +469,24 @@ index 0000000..0a1f5f4
 +        check_result, u);
 +    pa_asyncq_read_before_poll(u->results);
 +
-+    u->connect_hook_slot = pa_hook_connect(
++    u->connect_record_hook_slot = pa_hook_connect(
 +        &m->core->access[PA_ACCESS_HOOK_CONNECT_RECORD], PA_HOOK_NORMAL,
 +        (pa_hook_cb_t) connect_record_hook, u);
++    u->exit_daemon_hook_slot = pa_hook_connect(
++        &m->core->access[PA_ACCESS_HOOK_EXIT_DAEMON], PA_HOOK_NORMAL,
++        (pa_hook_cb_t) deny_to_snaps_hook, NULL);
++    u->get_module_info_hook_slot = pa_hook_connect(
++        &m->core->access[PA_ACCESS_HOOK_GET_MODULE_INFO], PA_HOOK_NORMAL,
++        (pa_hook_cb_t) deny_to_snaps_hook, NULL);
++    u->load_module_hook_slot = pa_hook_connect(
++        &m->core->access[PA_ACCESS_HOOK_LOAD_MODULE], PA_HOOK_NORMAL,
++        (pa_hook_cb_t) deny_to_snaps_hook, NULL);
++    u->unload_module_hook_slot = pa_hook_connect(
++        &m->core->access[PA_ACCESS_HOOK_UNLOAD_MODULE], PA_HOOK_NORMAL,
++        (pa_hook_cb_t) deny_to_snaps_hook, NULL);
++    u->kill_client_hook_slot = pa_hook_connect(
++        &m->core->access[PA_ACCESS_HOOK_KILL_CLIENT], PA_HOOK_NORMAL,
++        (pa_hook_cb_t) deny_to_snaps_hook, NULL);
 +
 +    /* Start glib thread and wait for it to finish initialising. */
 +    pa_mutex_lock(u->mutex);
@@ -464,7 +501,13 @@ index 0000000..0a1f5f4
 +    struct userdata *u = m->userdata;
 +    if (!u) return;
 +
-+    pa_hook_slot_free(u->connect_hook_slot);
++    pa_hook_slot_free(u->connect_record_hook_slot);
++    pa_hook_slot_free(u->exit_daemon_hook_slot);
++    pa_hook_slot_free(u->get_module_info_hook_slot);
++    pa_hook_slot_free(u->load_module_hook_slot);
++    pa_hook_slot_free(u->unload_module_hook_slot);
++    pa_hook_slot_free(u->kill_client_hook_slot);
++
 +    m->core->mainloop->io_free(u->io_event);
 +
 +    /* Stop the glib thread and wait for it to exit */

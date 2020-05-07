@@ -59,6 +59,20 @@ pulseaudio (1:8.0-1ubports1) xenial; urgency=medium
 
  -- Marius Gripsgard <marius@ubports.com>  Thu, 28 Dec 2017 10:05:34 +0100
 
+pulseaudio (1:8.0-0ubuntu3.12) xenial-security; urgency=medium
+
+  * SECURITY UPDATE: stop snaps from loading and unloading modules, to
+    prevent bypass of audio recording restriction (LP: #1877102). Patch thanks
+    to James Henstridge
+    - d/p/0407-access-Add-access-control-hooks.patch: make sure access
+      hook IDs are non-zero.
+    - d/p/0450-modules-add-snappy-policy-module.patch: Prevent snaps from
+      controlling modules, terminating the daemon, or disconnecting clients.
+    - CVE-2020-11931
+  * debian/control: Build-Depends on libsnapd-glib-dev (>= 1.49)
+
+ -- Jamie Strandboge <jamie@ubuntu.com>  Thu, 07 May 2020 20:43:53 +0000
+
 pulseaudio (1:8.0-0ubuntu3.11) xenial; urgency=medium
 
   * Backport the snap policy module to make access to audio recording
