@@ -58,7 +58,7 @@
 
 0700-pulsecore-add-new-card-profile-hook.patch
 0701-bluetooth-bluez5-wait-for-all-profiles-to-connect.patch
-0702-bluez5-fix-default-profle-option-due-to-choose-initial-profile-patch.patch
+0702-bluez5-fix-default-profle-option-due-to-choose-initi.patch
 
 # Fixes backported from PulseAudio 11.0
 0800-cb78d6f5-fix-lp1690028-lp1672171.patch

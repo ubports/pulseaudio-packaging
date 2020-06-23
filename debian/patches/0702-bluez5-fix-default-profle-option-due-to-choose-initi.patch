@@ -34,7 +34,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
      u->card = pa_card_new(u->core, &data);
      pa_card_new_data_done(&data);
      if (!u->card) {
-@@ -2195,21 +2185,38 @@
+@@ -2195,21 +2185,36 @@
      u->card->userdata = u;
      u->card->set_profile = set_profile_cb;
      pa_card_choose_initial_profile(u->card);
@@ -55,27 +55,25 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 -        u->default_profile = NULL;
 +    if ((default_profile = pa_modargs_get_value(u->modargs, "profile", NULL))) {
 +        cp = pa_hashmap_get(u->card->profiles, default_profile);
-+        if (!cp) {
-+            pa_log("Profile '%s' not valid or not supported by device.", default_profile);
-+            return -1;
-+        }
++        if (cp) {
++            pa_log_debug("Using %s profile as default", default_profile);
 +
-+        pa_log_debug("Using %s profile as default", default_profile);
-+
-+        p = PA_CARD_PROFILE_DATA(u->card->active_profile);
-+        if (*p != PA_BLUETOOTH_PROFILE_OFF && (!d->transports[*p] ||
-+                d->transports[*p]->state == PA_BLUETOOTH_TRANSPORT_STATE_DISCONNECTED)) {
-+            /* XXX: This implies that the "profile waiting" timeout has
-+             * occured. Do we have any hope? */
-+            pa_log_warn("Default profile not connected, selecting off profile");
-+            pa_card_set_profile(
-+                u->card,
-+                pa_hashmap_get(u->card->profiles, "off"),
-+                false);
-+            u->default_profile = pa_xstrdup(default_profile);
-+        }
-+        else {
-+            pa_card_set_profile(u->card, cp, false);
++            p = PA_CARD_PROFILE_DATA(cp);
++            if (*p != PA_BLUETOOTH_PROFILE_OFF && (!d->transports[*p] ||
++                    d->transports[*p]->state == PA_BLUETOOTH_TRANSPORT_STATE_DISCONNECTED)) {
++                /* XXX: This implies that the "profile waiting" timeout has
++                * occured. Do we have any hope? */
++                pa_log_warn("Default profile not connected, selecting off profile");
++                pa_card_set_profile(
++                    u->card,
++                    pa_hashmap_get(u->card->profiles, "off"),
++                    false);
++                u->default_profile = pa_xstrdup(default_profile);
++            } else {
++                pa_card_set_profile(u->card, cp, false);
++            }
++        } else {
++            pa_log_warn("Profile '%s' not valid or not supported by device.", default_profile);
 +        }
      }
  
