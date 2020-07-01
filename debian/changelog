@@ -1,3 +1,9 @@
+pulseaudio (1:8.0-1ubports7) xenial; urgency=medium
+
+  * Release to devel channel.
+
+ -- Ratchanan Srirattanamet <ratchanan@ubports.com>  Wed, 01 Jul 2020 23:12:22 +0700
+
 pulseaudio (1:8.0-1ubports7~exp2) xenial; urgency=medium
 
   * Import changes from Ubuntu xenial upto 8.0-0ubuntu3.12.
