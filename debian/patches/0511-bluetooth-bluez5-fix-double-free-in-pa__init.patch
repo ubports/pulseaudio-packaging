@@ -1,0 +1,34 @@
+Description: bluetooth: bluez5: fix double free in pa__init
+ The SCO-over-PCM patch creates code paths in pa__init() that will free
+ the modargs twice in its failure handler and in pa__done() called from
+ that handler. Add a check in the failure handler to prevent freeing
+ modargs if it's going to be freed in pa__done().
+Author: Ratchanan Srirattanamet <ratchanan@ubports.com>
+Forwarded: no
+Last-Update: 2020-06-23
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/src/modules/bluetooth/module-bluez5-device.c
++++ b/src/modules/bluetooth/module-bluez5-device.c
+@@ -2552,7 +2552,8 @@ off:
+ 
+ fail:
+ 
+-    if (ma)
++    /* u->modargs is also freed in pa__done(). Prevent double-free. */
++    if (ma && !u->modargs)
+         pa_modargs_free(ma);
+ 
+     pa__done(m);
+--- a/src/modules/bluetooth/module-bluez5-discover.c
++++ b/src/modules/bluetooth/module-bluez5-discover.c
+@@ -170,7 +170,8 @@ int pa__init(pa_module *m) {
+     return 0;
+ 
+ fail:
+-    if (ma)
++    /* u->modargs is also freed in pa__done(). Prevent double-free. */
++    if (ma && !u->modargs)
+         pa_modargs_free(ma);
+     pa__done(m);
+     return -1;
