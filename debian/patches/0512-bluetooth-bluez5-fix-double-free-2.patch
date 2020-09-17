@@ -1,0 +1,28 @@
+Description: Initialize u to NULL 
+ Modify 0511-bluetooth-bluez5-fix-double-free-in-pa__init.patch to initialize
+ and reference initialized u pointer.
+Author: Avital Ostromich <avital.ostromich@canonical.com>
+Origin: vendor
+Last-Update: 2020-09-02
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/src/modules/bluetooth/module-bluez5-discover.c
++++ b/src/modules/bluetooth/module-bluez5-discover.c
+@@ -128,7 +128,7 @@ const char *default_headset_backend = "o
+ #endif
+ 
+ int pa__init(pa_module *m) {
+-    struct userdata *u;
++    struct userdata *u = NULL;
+     pa_modargs *ma;
+     const char *headset_str;
+     int headset_backend;
+@@ -171,7 +171,7 @@ int pa__init(pa_module *m) {
+ 
+ fail:
+     /* u->modargs is also freed in pa__done(). Prevent double-free. */
+-    if (ma && !u->modargs)
++    if (ma && !u)
+         pa_modargs_free(ma);
+     pa__done(m);
+     return -1;

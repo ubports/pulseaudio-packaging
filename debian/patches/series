@@ -48,6 +48,8 @@
 0508-bluetooth-bluez5-add-guards-to-prevent-HFP-and-HSP-c.patch
 0509-bluetooth-bluez5-don-t-reactivate-default-profile-wh.patch
 0510-Further-fixes-for-HFP-A2DP-with-BlueZ-5.x.patch
+0511-bluetooth-bluez5-fix-double-free-in-pa__init.patch
+0512-bluetooth-bluez5-fix-double-free-2.patch
 
 # Ubuntu touch: add support for Android 5.x
 0600-droid-sync-with-upstream-for-Android-5-support-and-b.patch
