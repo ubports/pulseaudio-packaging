@@ -5,8 +5,8 @@ pulseaudio (1:8.0-1ubports9) UNRELEASED; urgency=medium
 
 pulseaudio (1:8.0-1ubports8) xenial; urgency=medium
 
- * Import changes from Ubuntu xenial from 1:8.0-0ubuntu3.13 to
-   1:8.0-0ubuntu3.14, but not 0ubuntu3.12 to 0ubuntu3.13.
+  * Import changes from Ubuntu xenial from 1:8.0-0ubuntu3.13 to
+    1:8.0-0ubuntu3.14, but not 0ubuntu3.12 to 0ubuntu3.13.
   * SECURITY UPDATE: potential double-free in the Bluez 5 module (LP: #1884738)
     - d/p/0511-bluetooth-bluez5-fix-double-free-in-pa__init.patch:
       Only free modargs once in each of
