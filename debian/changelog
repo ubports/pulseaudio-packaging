@@ -1,7 +1,19 @@
-pulseaudio (1:8.0-1ubports9) UNRELEASED; urgency=medium
+pulseaudio (1:8.0-1ubports9) xenial; urgency=medium
 
+  * Fix incorrect changelog indentation in 1:8.0-1ubports8
+  * Fixes audio rerouting problem after reconnect Bluetooth headset.
+    This is fixed by backporting a series of patches from upstream relating
+    to default sink handling. Fixes ubports/ubuntu-touch#1045.
+    - 0851-improve-default-sink-source-handling.patch
+    - 0852-core-device-port-check-availability-when-choosing-th.patch
+    - 0853-sink-source-update-the-default-sink-source-on-port-s.patch
+    - 0854-sink-source-Don-t-update-default-sink-source-before-.patch
+    - 0855-core-change-configured_default_sink-source-type-to-s.patch
+    - 0856-core-ignore-devices-that-are-not-linked-when-choosin.patch
+    - 0905-core-hack-to-make-old-module-ABI-compatible.patch: to avoid
+      having to re-build out-of-tree modules.
 
- -- Ratchanan Srirattanamet <ratchanan@ubports.com>  Sat, 19 Sep 2020 00:51:34 +0700
+ -- Ratchanan Srirattanamet <ratchanan@ubports.com>  Thu, 24 Sep 2020 01:22:35 +0700
 
 pulseaudio (1:8.0-1ubports8) xenial; urgency=medium
 
