@@ -1,7 +1,12 @@
-pulseaudio (1:8.0-1ubports10) UNRELEASED; urgency=medium
+pulseaudio (1:8.0-1ubports10) xenial; urgency=medium
 
+  * Fix my mistake in modifying a patch to work with Ubuntu's patch
+    - 0851-improve-default-sink-source-handling.patch: don't assign default_
+      sink to def_source. 🤦
+  * Fix mistake in patch description
+    - 0905-core-hack-to-make-old-module-ABI-compatible.patch
 
- -- Ratchanan Srirattanamet <ratchanan@ubports.com>  Thu, 24 Sep 2020 17:15:20 +0700
+ -- Ratchanan Srirattanamet <ratchanan@ubports.com>  Thu, 24 Sep 2020 21:56:23 +0700
 
 pulseaudio (1:8.0-1ubports9) xenial; urgency=medium
 
