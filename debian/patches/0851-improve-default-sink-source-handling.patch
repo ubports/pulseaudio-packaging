@@ -1133,7 +1133,7 @@ Last-Update: 2019-11-17
      if (def_sink)
          CHECK_ACCESS_STMT(c, PA_COMMAND_GET_SINK_INFO, tag, def_sink->index, NULL, return, def_sink = NULL);
 -    def_source = pa_namereg_get_default_source(c->protocol->core);
-+    def_source = core->default_sink;
++    def_source = core->default_source;
      if (def_source)
          CHECK_ACCESS_STMT(c, PA_COMMAND_GET_SOURCE_INFO, tag, def_source->index, NULL, return, def_source = NULL);
  
