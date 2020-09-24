@@ -5,7 +5,7 @@ Description: core: HACK to make old module ABI-compatible
  rebuilt. I don't want to do that, so I modifies the structure again so
  all things that doesn't change stays at the same place. Hopefully this
  will let us actually avoid rebuilding (preliminary testing suggests so,
- but show knows how deep the effect is).
+ but who knows how deep the effect is).
 Author: Ratchanan Srirattanamet <ratchanan@ubports.com>
 Bug-UBports: https://github.com/ubports/ubuntu-touch/issues/1045
 Forwarded: not-needed
