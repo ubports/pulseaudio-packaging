@@ -16,7 +16,6 @@
 0106-bluetooth-Add-optional-heuristic-for-switching-betwe.patch
 
 # Ubuntu touch stuff
-0202-dont-probe-ucm.patch
 0203-card-Add-hook-before-profile-changes.patch
 0206-module-bluetooth-discover-adding-module-option-profi.patch
 0207-Enable-pulseaudio-droid.patch
