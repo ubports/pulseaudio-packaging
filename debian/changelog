@@ -1,3 +1,10 @@
+pulseaudio (1:8.0-1ubports11) xenial; urgency=medium
+
+  * Re-enable probing of ucm to allow jack plug detection
+    - Remove 0202-dont-probe-ucm.patch
+
+-- Dalton Durst <dalton@ubports.com>  Thu, 29 Oct 2020 17:39:13 -0500
+
 pulseaudio (1:8.0-1ubports10) xenial; urgency=medium
 
   * Fix my mistake in modifying a patch to work with Ubuntu's patch
@@ -5247,4 +5254,3 @@ pulseaudio (0.9.5-1) unstable; urgency=low
   * Initial release (Closes: #378626)
 
  -- CJ van den Berg <cj@vdbonline.com>  Mon, 28 Aug 2006 00:31:10 +0200
-
